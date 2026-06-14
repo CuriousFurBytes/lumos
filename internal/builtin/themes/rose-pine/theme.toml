@@ -1,0 +1,12 @@
+name = "Rose Pine"
+family = "rose-pine"
+source = "https://github.com/rose-pine"
+description = "All natural pine, faux fur and a bit of soho vibes."
+
+[[programs]]
+name = "alacritty"
+file = "alacritty.toml"
+
+[[programs]]
+name = "bat"
+file = "bat.tmTheme"

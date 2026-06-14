@@ -1,0 +1,17 @@
+name = "Catppuccin Mocha"
+family = "catppuccin"
+flavor = "mocha"
+source = "https://github.com/catppuccin/catppuccin"
+description = "Soothing pastel dark theme — the Mocha flavor."
+
+[[programs]]
+name = "alacritty"
+file = "alacritty.toml"
+
+[[programs]]
+name = "kitty"
+file = "kitty.conf"
+
+[[programs]]
+name = "bat"
+file = "bat.tmTheme"
