@@ -1,0 +1,51 @@
+name: "Dracula"
+family: dracula
+source: "https://github.com/dracula"
+description: "A dark theme for many editors, shells and more."
+
+programs:
+  - name: alacritty
+    template: |
+      # Dracula for Alacritty
+      [colors.primary]
+      background = "${color.base}"
+      foreground = "${color.text}"
+
+      [colors.normal]
+      black   = "${color.currentline}"
+      red     = "${color.red}"
+      green   = "${color.green}"
+      yellow  = "${color.yellow}"
+      blue    = "${color.purple}"
+      magenta = "${color.pink}"
+      cyan    = "${color.cyan}"
+      white   = "${color.text}"
+  - name: kitty
+    template: |
+      # Dracula for kitty
+      foreground ${color.text}
+      background ${color.base}
+      color0     ${color.currentline}
+      color1     ${color.red}
+      color2     ${color.green}
+      color3     ${color.yellow}
+      color4     ${color.purple}
+      color5     ${color.pink}
+      color6     ${color.cyan}
+      color7     ${color.text}
+
+variants:
+  - id: dark
+    name: "Dracula"
+    style: dark
+    colors:
+      base: "#282a36"
+      text: "#f8f8f2"
+      currentline: "#44475a"
+      comment: "#6272a4"
+      red: "#ff5555"
+      green: "#50fa7b"
+      yellow: "#f1fa8c"
+      purple: "#bd93f9"
+      pink: "#ff79c6"
+      cyan: "#8be9fd"

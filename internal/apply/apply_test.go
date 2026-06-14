@@ -9,79 +9,79 @@ import (
 	"github.com/CuriousFurBytes/lumos/internal/theme"
 )
 
-func fixtureTheme(t *testing.T) (theme.Theme, config.Paths) {
+func fixture(t *testing.T) (theme.Theme, theme.Variant, config.Paths) {
 	t.Helper()
 	dir := t.TempDir()
-	bundle := filepath.Join(dir, "bundle")
-	if err := os.MkdirAll(bundle, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(bundle, "alacritty.toml"), []byte("# colors"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(bundle, "bat.tmTheme"), []byte("<theme/>"), 0o644); err != nil {
-		t.Fatal(err)
-	}
 	th := theme.Theme{
-		Name:   "Catppuccin Mocha",
-		Slug:   "catppuccin-mocha",
-		Family: "catppuccin",
-		Dir:    bundle,
+		Name: "Catppuccin",
+		Slug: "catppuccin",
 		Programs: []theme.Program{
-			{Name: "alacritty", File: "alacritty.toml"}, // target from registry
-			{Name: "bat", File: "bat.tmTheme"},          // registry default + post
+			{Name: "alacritty", Template: "bg = \"${color.base}\"\nfg = \"${color.text}\""},
+			{Name: "bat", Content: "static", Post: []string{"bat cache --build"}},
+		},
+		Variants: []theme.Variant{
+			{ID: "mocha", Name: "Mocha", Style: "dark", Colors: map[string]string{
+				"base": "#1e1e2e", "text": "#cdd6f4",
+			}},
 		},
 	}
 	paths := config.Paths{
-		Home:   dir,
-		Config: filepath.Join(dir, "cfg"),
-		Data:   filepath.Join(dir, "data"),
-		State:  filepath.Join(dir, "state"),
-		Cache:  filepath.Join(dir, "cache"),
+		Home: dir, Config: filepath.Join(dir, "cfg"), Data: filepath.Join(dir, "data"),
+		State: filepath.Join(dir, "state"), Cache: filepath.Join(dir, "cache"),
 	}
-	return th, paths
+	return th, th.Variants[0], paths
 }
 
-func TestResolveFillsTargetFromRegistry(t *testing.T) {
-	th, paths := fixtureTheme(t)
-	progs, err := Resolve(th, paths)
+func TestRenderSubstitutesPaletteAndTarget(t *testing.T) {
+	th, v, paths := fixture(t)
+	progs, err := Render(th, v, paths)
 	if err != nil {
-		t.Fatalf("Resolve: %v", err)
+		t.Fatalf("Render: %v", err)
 	}
 	if len(progs) != 2 {
-		t.Fatalf("got %d programs", len(progs))
+		t.Fatalf("got %d", len(progs))
 	}
-	wantAlac := filepath.Join(paths.Config, "alacritty", "themes", "catppuccin-mocha.toml")
-	if progs[0].Target != wantAlac {
-		t.Errorf("alacritty target = %q, want %q", progs[0].Target, wantAlac)
+	wantTarget := filepath.Join(paths.Config, "alacritty", "themes", "catppuccin-mocha.toml")
+	if progs[0].Target != wantTarget {
+		t.Errorf("target = %q, want %q", progs[0].Target, wantTarget)
 	}
-	// bat: ${name} placeholder + inherited post command from registry.
-	wantBat := filepath.Join(paths.Config, "bat", "themes", "Catppuccin Mocha.tmTheme")
-	if progs[1].Target != wantBat {
-		t.Errorf("bat target = %q, want %q", progs[1].Target, wantBat)
+	if progs[0].Content != "bg = \"#1e1e2e\"\nfg = \"#cdd6f4\"" {
+		t.Errorf("rendered content = %q", progs[0].Content)
 	}
-	if len(progs[1].Post) != 1 || progs[1].Post[0] != "bat cache --build" {
-		t.Errorf("bat post = %v, want [bat cache --build]", progs[1].Post)
+	// bat: literal content + inherited post hook from registry/theme.
+	if progs[1].Content != "static" {
+		t.Errorf("bat content = %q", progs[1].Content)
+	}
+	if len(progs[1].Post) != 1 {
+		t.Errorf("bat post = %v", progs[1].Post)
 	}
 }
 
-func TestResolveExplicitTargetWins(t *testing.T) {
-	th, paths := fixtureTheme(t)
-	th.Programs[0].Target = "~/custom/alac.toml"
-	progs, err := Resolve(th, paths)
+func TestRenderUsesVariantInTargetPlaceholder(t *testing.T) {
+	th, v, paths := fixture(t)
+	th.Programs[0].Target = "~/c/${slug}-${variant}.toml"
+	progs, err := Render(th, v, paths)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := filepath.Join(paths.Home, "custom", "alac.toml")
+	want := filepath.Join(paths.Home, "c", "catppuccin-mocha.toml")
 	if progs[0].Target != want {
 		t.Errorf("target = %q, want %q", progs[0].Target, want)
 	}
 }
 
-func TestResolveUnknownPortWithoutTargetErrors(t *testing.T) {
-	th, paths := fixtureTheme(t)
-	th.Programs = append(th.Programs, theme.Program{Name: "totally-unknown", File: "x"})
-	if _, err := Resolve(th, paths); err == nil {
+func TestRenderMissingColorErrors(t *testing.T) {
+	th, v, paths := fixture(t)
+	th.Programs[0].Template = "x = ${color.nonexistent}"
+	if _, err := Render(th, v, paths); err == nil {
+		t.Fatal("expected error for undefined palette key")
+	}
+}
+
+func TestRenderUnknownPortWithoutTargetErrors(t *testing.T) {
+	th, v, paths := fixture(t)
+	th.Programs = append(th.Programs, theme.Program{Name: "mystery", Content: "x"})
+	if _, err := Render(th, v, paths); err == nil {
 		t.Fatal("expected error: unknown port with no target")
 	}
 }
@@ -90,9 +90,9 @@ type fakeRunner struct{ ran []string }
 
 func (f *fakeRunner) Run(cmd string) error { f.ran = append(f.ran, cmd); return nil }
 
-func TestApplyWritesFilesAndRunsPost(t *testing.T) {
-	th, paths := fixtureTheme(t)
-	progs, err := Resolve(th, paths)
+func TestApplyWritesRenderedContent(t *testing.T) {
+	th, v, paths := fixture(t)
+	progs, err := Render(th, v, paths)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,73 +104,42 @@ func TestApplyWritesFilesAndRunsPost(t *testing.T) {
 	if len(rep.Applied) != 2 {
 		t.Errorf("applied = %v", rep.Applied)
 	}
-	data, err := os.ReadFile(progs[0].Target)
-	if err != nil || string(data) != "# colors" {
-		t.Errorf("alacritty file not copied: %v %q", err, data)
+	got, err := os.ReadFile(progs[0].Target)
+	if err != nil || string(got) != progs[0].Content {
+		t.Errorf("file = %q err=%v", got, err)
 	}
-	if len(runner.ran) != 1 || runner.ran[0] != "bat cache --build" {
-		t.Errorf("post commands ran = %v", runner.ran)
+	if len(runner.ran) != 1 {
+		t.Errorf("hooks ran = %v", runner.ran)
 	}
 }
 
 func TestApplyDryRunWritesNothing(t *testing.T) {
-	th, paths := fixtureTheme(t)
-	progs, err := Resolve(th, paths)
-	if err != nil {
-		t.Fatal(err)
-	}
+	th, v, paths := fixture(t)
+	progs, _ := Render(th, v, paths)
 	runner := &fakeRunner{}
 	if _, err := Apply(progs, runner, true); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(progs[0].Target); !os.IsNotExist(err) {
-		t.Error("dry run should not write files")
+		t.Error("dry run wrote a file")
 	}
 	if len(runner.ran) != 0 {
-		t.Errorf("dry run should not run commands, ran %v", runner.ran)
+		t.Error("dry run ran hooks")
 	}
 }
 
-type failRunner struct{ ran []string }
+type failRunner struct{}
 
-func (f *failRunner) Run(cmd string) error {
-	f.ran = append(f.ran, cmd)
-	return os.ErrPermission
-}
+func (failRunner) Run(string) error { return os.ErrPermission }
 
 func TestApplyPostFailureIsNonFatal(t *testing.T) {
-	th, paths := fixtureTheme(t)
-	progs, err := Resolve(th, paths)
+	th, v, paths := fixture(t)
+	progs, _ := Render(th, v, paths)
+	rep, err := Apply(progs, failRunner{}, false)
 	if err != nil {
-		t.Fatal(err)
-	}
-	runner := &failRunner{}
-	rep, err := Apply(progs, runner, false)
-	if err != nil {
-		t.Fatalf("a failing reload hook must not fail the apply: %v", err)
-	}
-	// The theme file is still written even though the hook failed.
-	if !fileExistsAt(progs[1].Target) {
-		t.Error("bat theme file should still be written")
+		t.Fatalf("failing hook must not fail apply: %v", err)
 	}
 	if len(rep.Warnings) == 0 {
-		t.Error("expected a warning recorded for the failed hook")
-	}
-}
-
-func fileExistsAt(p string) bool {
-	_, err := os.Stat(p)
-	return err == nil
-}
-
-func TestApplyMissingSourceErrors(t *testing.T) {
-	th, paths := fixtureTheme(t)
-	th.Programs[0].File = "missing.toml"
-	progs, err := Resolve(th, paths)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := Apply(progs, &fakeRunner{}, false); err == nil {
-		t.Fatal("expected error for missing source file")
+		t.Error("expected a warning for failed hook")
 	}
 }

@@ -24,6 +24,8 @@ func TestParseArgs(t *testing.T) {
 		{[]string{"--update"}, Options{Mode: ModeUpdate}},
 		{[]string{"--update", "dracula"}, Options{Mode: ModeUpdate, Name: "dracula"}},
 		{[]string{"dracula"}, Options{Mode: ModeEnable, Name: "dracula"}},
+		{[]string{"catppuccin", "mocha"}, Options{Mode: ModeEnable, Name: "catppuccin", Variant: "mocha"}},
+		{[]string{"catppuccin/mocha"}, Options{Mode: ModeEnable, Name: "catppuccin", Variant: "mocha"}},
 		{[]string{"--enable", "dracula"}, Options{Mode: ModeEnable, Name: "dracula"}},
 		{[]string{"--help"}, Options{Mode: ModeHelp}},
 		{[]string{"--version"}, Options{Mode: ModeVersion}},
@@ -54,25 +56,38 @@ func TestParseArgsErrors(t *testing.T) {
 
 func TestRenderThemeList(t *testing.T) {
 	themes := []theme.Theme{
-		{Slug: "catppuccin-mocha", Name: "Catppuccin Mocha", Programs: []theme.Program{{Name: "a"}, {Name: "b"}}},
-		{Slug: "dracula", Name: "Dracula", Programs: []theme.Program{{Name: "a"}}},
+		{Slug: "catppuccin", Name: "Catppuccin", Variants: []theme.Variant{{ID: "latte"}, {ID: "mocha"}}},
+		{Slug: "dracula", Name: "Dracula", Variants: []theme.Variant{{ID: "dark"}}},
 	}
 	out := RenderThemeList(themes, "dracula")
 	if !strings.Contains(out, "1)") || !strings.Contains(out, "2)") {
 		t.Errorf("missing numbering:\n%s", out)
 	}
-	if !strings.Contains(out, "Catppuccin Mocha") || !strings.Contains(out, "Dracula") {
+	if !strings.Contains(out, "Catppuccin") || !strings.Contains(out, "Dracula") {
 		t.Errorf("missing names:\n%s", out)
 	}
-	// The current theme must be marked.
-	lineWithCurrent := ""
+	var currentLine string
 	for _, l := range strings.Split(out, "\n") {
 		if strings.Contains(l, "Dracula") {
-			lineWithCurrent = l
+			currentLine = l
 		}
 	}
-	if !strings.Contains(lineWithCurrent, "*") {
+	if !strings.Contains(currentLine, "*") {
 		t.Errorf("current theme not marked:\n%s", out)
+	}
+}
+
+func TestRenderVariantList(t *testing.T) {
+	th := theme.Theme{Name: "Catppuccin", Variants: []theme.Variant{
+		{ID: "latte", Name: "Latte", Style: "light"},
+		{ID: "mocha", Name: "Mocha", Style: "dark"},
+	}}
+	out := RenderVariantList(th, "mocha")
+	if !strings.Contains(out, "Latte") || !strings.Contains(out, "Mocha") {
+		t.Errorf("missing variant names:\n%s", out)
+	}
+	if !strings.Contains(out, "light") || !strings.Contains(out, "dark") {
+		t.Errorf("missing styles:\n%s", out)
 	}
 }
 
@@ -109,7 +124,6 @@ func newTestApp(t *testing.T, in string) (*App, *bytes.Buffer) {
 	app := &App{
 		Paths:  config.Resolve(),
 		Runner: noopRunner{},
-		Cloner: nil,
 		In:     strings.NewReader(in),
 		Out:    out,
 		Err:    out,
@@ -121,9 +135,9 @@ type noopRunner struct{}
 
 func (noopRunner) Run(string) error { return nil }
 
-func TestInteractiveSelectAppliesAndPersists(t *testing.T) {
-	app, out := newTestApp(t, "1\n")
-	// Seeds builtin themes, lists them, applies selection #1.
+func TestInteractiveSelectThemeThenVariant(t *testing.T) {
+	// Theme #1 (catppuccin) has 4 variants, so a second prompt appears.
+	app, out := newTestApp(t, "1\n4\n")
 	if code := app.Run(nil); code != 0 {
 		t.Fatalf("exit %d\n%s", code, out.String())
 	}
@@ -131,18 +145,15 @@ func TestInteractiveSelectAppliesAndPersists(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st.Current == "" {
-		t.Fatal("no theme persisted after selection")
+	if st.Current != "catppuccin" || st.Variant != "mocha" {
+		t.Fatalf("state = %+v, want catppuccin/mocha", st)
 	}
-	// The selected theme's files must have been written somewhere in config.
-	themes, _ := theme.Discover(app.Paths.ThemesDir())
-	var chosen theme.Theme
-	for _, th := range themes {
-		if th.Slug == st.Current {
-			chosen = th
-		}
+	th, err := theme.Load(filepath.Join(app.Paths.ThemesDir(), "catppuccin.yaml"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	progs, err := apply.Resolve(chosen, app.Paths)
+	v, _ := th.Variant("mocha")
+	progs, err := apply.Render(th, v, app.Paths)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,18 +164,37 @@ func TestInteractiveSelectAppliesAndPersists(t *testing.T) {
 	}
 }
 
-func TestEnableByName(t *testing.T) {
+func TestEnableSingleVariantSkipsPrompt(t *testing.T) {
+	// Dracula has one variant; no prompt is needed even with empty stdin.
 	app, out := newTestApp(t, "")
 	if code := app.Run([]string{"dracula"}); code != 0 {
 		t.Fatalf("exit %d\n%s", code, out.String())
 	}
 	st, _ := config.LoadState(app.Paths.StateFile())
-	if st.Current != "dracula" {
-		t.Errorf("current = %q, want dracula", st.Current)
+	if st.Current != "dracula" || st.Variant != "dark" {
+		t.Errorf("state = %+v, want dracula/dark", st)
 	}
 }
 
-func TestEnableUnknownNameFails(t *testing.T) {
+func TestEnableWithExplicitVariant(t *testing.T) {
+	app, out := newTestApp(t, "")
+	if code := app.Run([]string{"catppuccin", "frappe"}); code != 0 {
+		t.Fatalf("exit %d\n%s", code, out.String())
+	}
+	st, _ := config.LoadState(app.Paths.StateFile())
+	if st.Variant != "frappe" {
+		t.Errorf("variant = %q, want frappe", st.Variant)
+	}
+}
+
+func TestEnableUnknownVariantFails(t *testing.T) {
+	app, out := newTestApp(t, "")
+	if code := app.Run([]string{"catppuccin", "nope"}); code == 0 {
+		t.Fatalf("expected failure for unknown variant\n%s", out.String())
+	}
+}
+
+func TestEnableUnknownThemeFails(t *testing.T) {
 	app, out := newTestApp(t, "")
 	if code := app.Run([]string{"nope"}); code == 0 {
 		t.Fatalf("expected failure enabling unknown theme\n%s", out.String())
@@ -173,23 +203,21 @@ func TestEnableUnknownNameFails(t *testing.T) {
 
 func TestInstallAndEnableFlow(t *testing.T) {
 	app, out := newTestApp(t, "")
-	app.Cloner = &fakeCloner{}
+	app.Cloner = fakeCloner{}
 
-	// Build a local theme folder to install.
 	src := t.TempDir()
-	writeFile(t, filepath.Join(src, "theme.toml"),
-		"name=\"My Theme\"\nslug=\"mine\"\n[[programs]]\nname=\"alacritty\"\nfile=\"a.toml\"\n")
-	writeFile(t, filepath.Join(src, "a.toml"), "# x")
+	writeFile(t, filepath.Join(src, "mine.yaml"),
+		"name: Mine\nprograms:\n  - {name: alacritty, content: \"# x\"}\nvariants:\n  - {id: only, name: Only}\n")
 
-	if code := app.Run([]string{"--install", src, "--enable"}); code != 0 {
+	if code := app.Run([]string{"--install", filepath.Join(src, "mine.yaml"), "--enable"}); code != 0 {
 		t.Fatalf("exit %d\n%s", code, out.String())
 	}
-	if !fileExists(filepath.Join(app.Paths.ThemesDir(), "mine", "theme.toml")) {
+	if !fileExists(filepath.Join(app.Paths.ThemesDir(), "mine.yaml")) {
 		t.Error("theme not installed")
 	}
 	st, _ := config.LoadState(app.Paths.StateFile())
-	if st.Current != "mine" {
-		t.Errorf("install --enable should select theme, current=%q", st.Current)
+	if st.Current != "mine" || st.Variant != "only" {
+		t.Errorf("install --enable should select theme, state=%+v", st)
 	}
 }
 
@@ -198,7 +226,7 @@ func TestListMode(t *testing.T) {
 	if code := app.Run([]string{"--list"}); code != 0 {
 		t.Fatalf("exit %d", code)
 	}
-	if !strings.Contains(out.String(), "Catppuccin Mocha") {
+	if !strings.Contains(out.String(), "Catppuccin") {
 		t.Errorf("list missing seeded themes:\n%s", out.String())
 	}
 }
@@ -207,6 +235,5 @@ func TestListMode(t *testing.T) {
 type fakeCloner struct{}
 
 func (fakeCloner) Clone(url, dest string) error { return nil }
-func (fakeCloner) Pull(dir string) error        { return nil }
 
 var _ source.Cloner = fakeCloner{}

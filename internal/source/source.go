@@ -1,5 +1,5 @@
-// Package source installs and updates theme bundles from git repositories
-// or local folders.
+// Package source installs and updates theme files from git repositories,
+// local folders or single local files.
 package source
 
 import (
@@ -14,15 +14,15 @@ import (
 	"github.com/CuriousFurBytes/lumos/internal/theme"
 )
 
-// originFile records where an installed theme came from so it can be
-// updated later. It lives inside each installed theme directory.
-const originFile = ".lumos-origin"
+// originExt is the suffix of the sidecar file recording where an installed
+// theme came from, so it can be updated later. For theme "dracula" the
+// sidecar is "dracula.origin" alongside "dracula.yaml".
+const originExt = ".origin"
 
-// Cloner fetches and refreshes git repositories. It is an interface so the
-// install/update flow can be tested without touching the network.
+// Cloner fetches a git repository into a directory. It is an interface so
+// install/update can be tested without network access.
 type Cloner interface {
 	Clone(url, dest string) error
-	Pull(dir string) error
 }
 
 // GitCloner shells out to the system git binary.
@@ -30,15 +30,7 @@ type GitCloner struct{}
 
 // Clone runs `git clone --depth 1 url dest`.
 func (GitCloner) Clone(url, dest string) error {
-	return run("", "git", "clone", "--depth", "1", url, dest)
-}
-
-// Pull runs `git pull` inside dir.
-func (GitCloner) Pull(dir string) error { return run(dir, "git", "pull", "--ff-only") }
-
-func run(dir, name string, args ...string) error {
-	c := exec.Command(name, args...)
-	c.Dir = dir
+	c := exec.Command("git", "clone", "--depth", "1", url, dest)
 	c.Stdout, c.Stderr = os.Stdout, os.Stderr
 	return c.Run()
 }
@@ -63,50 +55,66 @@ func NormalizeGitURL(spec string) string {
 	}
 }
 
-// Install installs the theme(s) found in spec, which is either a local
-// folder or a git repository reference. It returns the slugs installed.
-// When --enable behaviour is wanted the caller enables the returned slug.
+// Install installs the theme file(s) referenced by spec — a single local
+// file, a local folder, or a git repository reference — into themesDir,
+// recording each theme's origin. It returns the installed slugs.
 func Install(spec, themesDir string, cloner Cloner) ([]string, error) {
-	var src, origin string
-	if info, err := os.Stat(spec); err == nil && info.IsDir() {
-		abs, err := filepath.Abs(spec)
-		if err != nil {
-			return nil, err
+	src, origin, cleanup, err := materialize(spec, cloner)
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
+	return installFrom(src, origin, themesDir)
+}
+
+// materialize turns spec into a local path to scan, plus the origin string
+// to record (the original spec/URL).
+func materialize(spec string, cloner Cloner) (src, origin string, cleanup func(), err error) {
+	cleanup = func() {}
+	if _, statErr := os.Stat(spec); statErr == nil {
+		abs, aerr := filepath.Abs(spec)
+		if aerr != nil {
+			return "", "", cleanup, aerr
 		}
-		src, origin = abs, abs
-	} else {
-		url := NormalizeGitURL(spec)
-		tmp, err := os.MkdirTemp("", "lumos-clone-")
-		if err != nil {
-			return nil, err
-		}
-		defer os.RemoveAll(tmp)
-		dest := filepath.Join(tmp, "repo")
-		if err := cloner.Clone(url, dest); err != nil {
-			return nil, fmt.Errorf("cloning %s: %w", url, err)
-		}
-		src, origin = dest, url
+		return abs, abs, cleanup, nil
 	}
 
-	bundles := findThemeDirs(src)
-	if len(bundles) == 0 {
-		return nil, fmt.Errorf("no theme.toml found in %s", spec)
+	url := NormalizeGitURL(spec)
+	tmp, terr := os.MkdirTemp("", "lumos-clone-")
+	if terr != nil {
+		return "", "", cleanup, terr
 	}
+	cleanup = func() { os.RemoveAll(tmp) }
+	dest := filepath.Join(tmp, "repo")
+	if err := cloner.Clone(url, dest); err != nil {
+		cleanup()
+		return "", "", func() {}, fmt.Errorf("cloning %s: %w", url, err)
+	}
+	return dest, url, cleanup, nil
+}
 
+func installFrom(src, origin, themesDir string) ([]string, error) {
+	files, err := findThemeFiles(src)
+	if err != nil {
+		return nil, err
+	}
+	if len(files) == 0 {
+		return nil, fmt.Errorf("no theme files found in %s", origin)
+	}
+	if err := os.MkdirAll(themesDir, 0o755); err != nil {
+		return nil, err
+	}
 	var slugs []string
-	for _, b := range bundles {
-		th, err := theme.Load(b)
+	for _, f := range files {
+		th, err := theme.Load(f)
 		if err != nil {
 			return nil, err
 		}
-		dest := filepath.Join(themesDir, th.Slug)
-		if err := os.RemoveAll(dest); err != nil {
+		dest := filepath.Join(themesDir, th.Slug+".yaml")
+		if err := copyFile(f, dest); err != nil {
 			return nil, err
 		}
-		if err := copyTree(b, dest); err != nil {
-			return nil, err
-		}
-		if err := os.WriteFile(filepath.Join(dest, originFile), []byte(origin+"\n"), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(themesDir, th.Slug+originExt), []byte(origin+"\n"), 0o644); err != nil {
 			return nil, err
 		}
 		slugs = append(slugs, th.Slug)
@@ -121,43 +129,37 @@ func Update(name, themesDir string, cloner Cloner) error {
 	if name != "" {
 		slugs = []string{name}
 	} else {
-		entries, err := os.ReadDir(themesDir)
+		themes, err := theme.Discover(themesDir)
 		if err != nil {
 			return err
 		}
-		for _, e := range entries {
-			if e.IsDir() {
-				slugs = append(slugs, e.Name())
-			}
+		for _, th := range themes {
+			slugs = append(slugs, th.Slug)
 		}
 	}
 
 	for _, slug := range slugs {
-		dir := filepath.Join(themesDir, slug)
-		origin, err := readOrigin(dir)
+		origin, err := readOrigin(themesDir, slug)
 		if err != nil {
 			return fmt.Errorf("%s: %w", slug, err)
 		}
-		if isLocalPath(origin) {
-			if err := copyTree(origin, dir); err != nil {
-				return fmt.Errorf("%s: %w", slug, err)
-			}
-			if err := os.WriteFile(filepath.Join(dir, originFile), []byte(origin+"\n"), 0o644); err != nil {
-				return err
-			}
-			continue
+		src, _, cleanup, err := materialize(origin, cloner)
+		if err != nil {
+			return fmt.Errorf("%s: %w", slug, err)
 		}
-		if err := cloner.Pull(dir); err != nil {
+		_, err = installFrom(src, origin, themesDir)
+		cleanup()
+		if err != nil {
 			return fmt.Errorf("%s: %w", slug, err)
 		}
 	}
 	return nil
 }
 
-func readOrigin(dir string) (string, error) {
-	b, err := os.ReadFile(filepath.Join(dir, originFile))
+func readOrigin(themesDir, slug string) (string, error) {
+	b, err := os.ReadFile(filepath.Join(themesDir, slug+originExt))
 	if os.IsNotExist(err) {
-		return "", fmt.Errorf("theme is not installed by lumos (no %s)", originFile)
+		return "", fmt.Errorf("theme is not installed by lumos (no origin recorded)")
 	}
 	if err != nil {
 		return "", err
@@ -165,45 +167,40 @@ func readOrigin(dir string) (string, error) {
 	return strings.TrimSpace(string(b)), nil
 }
 
-func isLocalPath(origin string) bool {
-	info, err := os.Stat(origin)
-	return err == nil && info.IsDir()
-}
-
-// findThemeDirs locates theme bundles in root: the root itself, its direct
-// children, and the children of a top-level "themes" directory.
-func findThemeDirs(root string) []string {
+// findThemeFiles returns the theme files reachable from root. If root is a
+// file it is returned directly; otherwise the tree is walked (skipping
+// .git) and every file that parses as a theme is collected.
+func findThemeFiles(root string) ([]string, error) {
+	info, err := os.Stat(root)
+	if err != nil {
+		return nil, err
+	}
+	if !info.IsDir() {
+		if theme.HasThemeExt(root) {
+			return []string{root}, nil
+		}
+		return nil, nil
+	}
 	var found []string
-	add := func(dir string) {
-		if _, err := os.Stat(filepath.Join(dir, theme.Manifest)); err == nil {
-			found = append(found, dir)
-		}
-	}
-	add(root)
-	for _, sub := range []string{root, filepath.Join(root, "themes")} {
-		entries, err := os.ReadDir(sub)
+	err = filepath.Walk(root, func(path string, fi os.FileInfo, err error) error {
 		if err != nil {
-			continue
+			return err
 		}
-		for _, e := range entries {
-			if e.IsDir() {
-				add(filepath.Join(sub, e.Name()))
+		if fi.IsDir() {
+			if fi.Name() == ".git" {
+				return filepath.SkipDir
 			}
+			return nil
 		}
-	}
-	return dedupe(found)
-}
-
-func dedupe(in []string) []string {
-	seen := map[string]bool{}
-	var out []string
-	for _, s := range in {
-		if !seen[s] {
-			seen[s] = true
-			out = append(out, s)
+		if !theme.HasThemeExt(path) {
+			return nil
 		}
-	}
-	return out
+		if _, lerr := theme.Load(path); lerr == nil {
+			found = append(found, path)
+		}
+		return nil
+	})
+	return found, err
 }
 
 // copyTree recursively copies src into dst, skipping any .git directory.
@@ -216,14 +213,13 @@ func copyTree(src, dst string) error {
 		if err != nil {
 			return err
 		}
-		if info.IsDir() && info.Name() == ".git" {
-			return filepath.SkipDir
-		}
-		target := filepath.Join(dst, rel)
 		if info.IsDir() {
-			return os.MkdirAll(target, 0o755)
+			if info.Name() == ".git" {
+				return filepath.SkipDir
+			}
+			return os.MkdirAll(filepath.Join(dst, rel), 0o755)
 		}
-		return copyFile(path, target)
+		return copyFile(path, filepath.Join(dst, rel))
 	})
 }
 

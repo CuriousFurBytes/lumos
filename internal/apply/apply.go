@@ -1,13 +1,13 @@
-// Package apply resolves a theme's programs against the port registry and
-// installs the theme files onto disk, running any post-install hooks.
+// Package apply renders a theme variant against the port registry and
+// installs the resulting files, running any reload hooks.
 package apply
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/CuriousFurBytes/lumos/internal/config"
@@ -15,39 +15,43 @@ import (
 	"github.com/CuriousFurBytes/lumos/internal/theme"
 )
 
-// ResolvedProgram is a theme program with its source and destination paths
-// fully resolved to absolute filesystem locations.
+// ResolvedProgram is a theme program rendered for a specific variant, with
+// its destination path resolved to an absolute location.
 type ResolvedProgram struct {
-	Name   string
-	Source string // absolute path to the file inside the theme bundle
-	Target string // absolute destination path
-	Post   []string
-	// Known reports whether the port was found in the registry.
-	Known bool
+	Name    string
+	Target  string
+	Content string
+	Post    []string
+	Known   bool
 }
 
-// Runner executes a post-install shell command.
+// Runner executes a reload hook.
 type Runner interface {
 	Run(cmd string) error
 }
 
-// ExecRunner runs commands through the system shell.
+// ExecRunner runs hooks through the system shell.
 type ExecRunner struct{}
 
 // Run executes cmd via `sh -c`.
 func (ExecRunner) Run(cmd string) error {
 	c := exec.Command("sh", "-c", cmd)
-	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
+	c.Stdout, c.Stderr = os.Stdout, os.Stderr
 	return c.Run()
 }
 
-// Resolve turns a theme's declared programs into installable units. Targets
-// and post-commands are taken from the theme when present, otherwise from
-// the embedded registry. An unknown port with no explicit target is an
-// error, since lumos cannot know where to put the file.
-func Resolve(t theme.Theme, paths config.Paths) ([]ResolvedProgram, error) {
-	repl := strings.NewReplacer("${slug}", t.Slug, "${name}", t.Name)
+var colorToken = regexp.MustCompile(`\$\{color\.([a-zA-Z0-9_-]+)\}`)
+
+// Render turns a theme's programs into installable units for variant v:
+// templates have their ${color.KEY} tokens replaced from the variant
+// palette, and target paths are resolved from the theme or the registry.
+func Render(t theme.Theme, v theme.Variant, paths config.Paths) ([]ResolvedProgram, error) {
+	pathRepl := strings.NewReplacer(
+		"${slug}", t.Slug,
+		"${variant}", v.ID,
+		"${name}", t.Name,
+		"${variantName}", v.Name,
+	)
 	out := make([]ResolvedProgram, 0, len(t.Programs))
 	for _, p := range t.Programs {
 		port, known := registry.Lookup(p.Name)
@@ -59,7 +63,23 @@ func Resolve(t theme.Theme, paths config.Paths) ([]ResolvedProgram, error) {
 		if target == "" {
 			return nil, fmt.Errorf("program %q: unknown port and no target given", p.Name)
 		}
-		target = paths.Expand(repl.Replace(target))
+		target = paths.Expand(pathRepl.Replace(target))
+
+		content := p.Content
+		if content == "" {
+			var rerr error
+			content = colorToken.ReplaceAllStringFunc(p.Template, func(tok string) string {
+				key := colorToken.FindStringSubmatch(tok)[1]
+				val, ok := v.Colors[key]
+				if !ok {
+					rerr = fmt.Errorf("program %q: variant %q has no color %q", p.Name, v.ID, key)
+				}
+				return val
+			})
+			if rerr != nil {
+				return nil, rerr
+			}
+		}
 
 		post := p.Post
 		if post == nil {
@@ -67,11 +87,7 @@ func Resolve(t theme.Theme, paths config.Paths) ([]ResolvedProgram, error) {
 		}
 
 		out = append(out, ResolvedProgram{
-			Name:   p.Name,
-			Source: filepath.Join(t.Dir, p.File),
-			Target: target,
-			Post:   post,
-			Known:  known,
+			Name: p.Name, Target: target, Content: content, Post: post, Known: known,
 		})
 	}
 	return out, nil
@@ -84,26 +100,26 @@ type Report struct {
 	Warnings []string
 }
 
-// Apply installs each resolved program: it copies the source theme file to
-// its target (creating parent directories) and runs post-install hooks.
-// When dryRun is true it performs validation only and touches nothing.
+// Apply writes each rendered program to its target and runs its hooks. When
+// dryRun is true nothing is written. Hook failures are recorded as warnings
+// rather than aborting the switch.
 func Apply(progs []ResolvedProgram, runner Runner, dryRun bool) (Report, error) {
 	var rep Report
 	for _, p := range progs {
-		if _, err := os.Stat(p.Source); err != nil {
-			return rep, fmt.Errorf("%s: theme file %s: %w", p.Name, p.Source, err)
-		}
 		if dryRun {
 			rep.Applied = append(rep.Applied, p.Name)
 			continue
 		}
-		if err := copyFile(p.Source, p.Target); err != nil {
+		if err := os.MkdirAll(filepath.Dir(p.Target), 0o755); err != nil {
+			return rep, fmt.Errorf("%s: %w", p.Name, err)
+		}
+		if err := os.WriteFile(p.Target, []byte(p.Content), 0o644); err != nil {
 			return rep, fmt.Errorf("%s: %w", p.Name, err)
 		}
 		rep.Applied = append(rep.Applied, p.Name)
 		for _, cmd := range p.Post {
-			// Reload/cache hooks are best-effort: a missing tool must not
-			// abort the whole theme switch, so failures are warnings.
+			// Reload hooks are best-effort: a missing tool must not abort
+			// the whole theme switch.
 			if err := runner.Run(cmd); err != nil {
 				rep.Warnings = append(rep.Warnings,
 					fmt.Sprintf("%s: reload hook %q failed: %v", p.Name, cmd, err))
@@ -113,24 +129,4 @@ func Apply(progs []ResolvedProgram, runner Runner, dryRun bool) (Report, error) 
 		}
 	}
 	return rep, nil
-}
-
-func copyFile(src, dst string) error {
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return err
-	}
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-	if _, err := io.Copy(out, in); err != nil {
-		return err
-	}
-	return out.Close()
 }

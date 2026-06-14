@@ -13,7 +13,7 @@ func TestNamesIncludesStarterThemes(t *testing.T) {
 	if len(names) < 2 {
 		t.Fatalf("expected several builtin themes, got %v", names)
 	}
-	want := map[string]bool{"catppuccin-mocha": false, "dracula": false}
+	want := map[string]bool{"catppuccin": false, "dracula": false, "rose-pine": false}
 	for _, n := range names {
 		if _, ok := want[n]; ok {
 			want[n] = true
@@ -26,21 +26,38 @@ func TestNamesIncludesStarterThemes(t *testing.T) {
 	}
 }
 
-func TestSeedWritesThemesAndTheyParse(t *testing.T) {
+func TestEmbeddedThemesParseAndRender(t *testing.T) {
 	dir := t.TempDir()
-	seeded, err := Seed(dir)
-	if err != nil {
-		t.Fatalf("Seed: %v", err)
-	}
-	if len(seeded) == 0 {
-		t.Fatal("nothing seeded")
+	if _, err := Seed(dir); err != nil {
+		t.Fatal(err)
 	}
 	themes, err := theme.Discover(dir)
 	if err != nil {
-		t.Fatalf("Discover after seed: %v", err)
+		t.Fatalf("Discover: %v", err)
 	}
-	if len(themes) != len(seeded) {
-		t.Errorf("discovered %d themes, seeded %d", len(themes), len(seeded))
+	if len(themes) == 0 {
+		t.Fatal("no themes discovered after seed")
+	}
+	// Catppuccin should ship multiple variants; every program template must
+	// resolve against every variant palette.
+	for _, th := range themes {
+		if len(th.Variants) == 0 {
+			t.Errorf("%s has no variants", th.Slug)
+		}
+	}
+}
+
+func TestCatppuccinHasFourVariants(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := Seed(dir); err != nil {
+		t.Fatal(err)
+	}
+	th, err := theme.Load(filepath.Join(dir, "catppuccin.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(th.Variants) != 4 {
+		t.Errorf("catppuccin variants = %d, want 4", len(th.Variants))
 	}
 }
 
@@ -49,9 +66,8 @@ func TestSeedSkipsExisting(t *testing.T) {
 	if _, err := Seed(dir); err != nil {
 		t.Fatal(err)
 	}
-	// Mark one theme as user-modified; a second seed must not overwrite it.
-	existing := filepath.Join(dir, "dracula", "theme.toml")
-	if err := os.WriteFile(existing, []byte("name=\"edited\"\n[[programs]]\nname=\"vim\"\nfile=\"x\"\n"), 0o644); err != nil {
+	existing := filepath.Join(dir, "dracula.yaml")
+	if err := os.WriteFile(existing, []byte("name: edited\nprograms:\n  - {name: vim, content: x}\nvariants:\n  - {id: a, name: A}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	seeded, err := Seed(dir)
@@ -64,7 +80,7 @@ func TestSeedSkipsExisting(t *testing.T) {
 		}
 	}
 	data, _ := os.ReadFile(existing)
-	if string(data) != "name=\"edited\"\n[[programs]]\nname=\"vim\"\nfile=\"x\"\n" {
+	if string(data) != "name: edited\nprograms:\n  - {name: vim, content: x}\nvariants:\n  - {id: a, name: A}\n" {
 		t.Error("existing theme content changed")
 	}
 }

@@ -10,216 +10,217 @@
 #
 # Each entry records where the program conventionally expects its theme
 # file. `target` understands the lumos placeholders ${XDG_CONFIG_HOME},
-# ${XDG_DATA_HOME}, $HOME, ~ plus ${slug} (the theme's slug) and ${name}
-# (the theme's display name). A theme may override any target.
+# ${XDG_DATA_HOME}, $HOME and ~, plus ${slug} (theme slug), ${variant}
+# (variant id), ${name} (theme display name) and ${variantName}. A theme
+# may override any target.
 
 [ports.alacritty]
 name = "Alacritty"
 categories = ["terminal"]
-target = "${XDG_CONFIG_HOME}/alacritty/themes/${slug}.toml"
+target = "${XDG_CONFIG_HOME}/alacritty/themes/${slug}-${variant}.toml"
 families = ["catppuccin", "dracula", "base16", "base24", "rose-pine"]
 
 [ports.kitty]
 name = "kitty"
 categories = ["terminal"]
-target = "${XDG_CONFIG_HOME}/kitty/themes/${slug}.conf"
+target = "${XDG_CONFIG_HOME}/kitty/themes/${slug}-${variant}.conf"
 families = ["catppuccin", "dracula", "base16", "base24", "rose-pine"]
 
 [ports.wezterm]
 name = "WezTerm"
 categories = ["terminal"]
-target = "${XDG_CONFIG_HOME}/wezterm/colors/${slug}.toml"
+target = "${XDG_CONFIG_HOME}/wezterm/colors/${slug}-${variant}.toml"
 families = ["catppuccin", "dracula", "base16", "base24", "rose-pine"]
 
 [ports.foot]
 name = "foot"
 categories = ["terminal"]
-target = "${XDG_CONFIG_HOME}/foot/themes/${slug}.ini"
+target = "${XDG_CONFIG_HOME}/foot/themes/${slug}-${variant}.ini"
 families = ["catppuccin", "dracula", "base16", "rose-pine"]
 
 [ports.ghostty]
 name = "Ghostty"
 categories = ["terminal"]
-target = "${XDG_CONFIG_HOME}/ghostty/themes/${slug}"
+target = "${XDG_CONFIG_HOME}/ghostty/themes/${slug}-${variant}"
 families = ["catppuccin", "rose-pine"]
 
 [ports.wezterm-lua]
 name = "WezTerm (lua)"
 categories = ["terminal"]
-target = "${XDG_CONFIG_HOME}/wezterm/colors/${slug}.lua"
+target = "${XDG_CONFIG_HOME}/wezterm/colors/${slug}-${variant}.lua"
 families = ["catppuccin", "dracula"]
 
 [ports.rio]
 name = "Rio"
 categories = ["terminal"]
-target = "${XDG_CONFIG_HOME}/rio/themes/${slug}.toml"
+target = "${XDG_CONFIG_HOME}/rio/themes/${slug}-${variant}.toml"
 families = ["catppuccin"]
 
 [ports.bat]
 name = "bat"
 categories = ["cli"]
-target = "${XDG_CONFIG_HOME}/bat/themes/${name}.tmTheme"
+target = "${XDG_CONFIG_HOME}/bat/themes/${name} ${variantName}.tmTheme"
 post = ["bat cache --build"]
 families = ["catppuccin", "dracula", "base16", "base24", "rose-pine"]
 
 [ports.delta]
 name = "delta"
 categories = ["cli"]
-target = "${XDG_CONFIG_HOME}/delta/themes/${slug}.gitconfig"
+target = "${XDG_CONFIG_HOME}/delta/themes/${slug}-${variant}.gitconfig"
 families = ["catppuccin", "dracula", "rose-pine"]
 
 [ports.btop]
 name = "btop"
 categories = ["cli"]
-target = "${XDG_CONFIG_HOME}/btop/themes/${slug}.theme"
+target = "${XDG_CONFIG_HOME}/btop/themes/${slug}-${variant}.theme"
 families = ["catppuccin", "dracula", "base16", "base24", "rose-pine"]
 
 [ports.bottom]
 name = "bottom"
 categories = ["cli"]
-target = "${XDG_CONFIG_HOME}/bottom/themes/${slug}.toml"
+target = "${XDG_CONFIG_HOME}/bottom/themes/${slug}-${variant}.toml"
 families = ["catppuccin", "base16"]
 
 [ports.fzf]
 name = "fzf"
 categories = ["cli"]
-target = "${XDG_CONFIG_HOME}/fzf/${slug}.fzfrc"
+target = "${XDG_CONFIG_HOME}/fzf/${slug}-${variant}.fzfrc"
 families = ["catppuccin", "dracula", "base16", "rose-pine"]
 
 [ports.lazygit]
 name = "lazygit"
 categories = ["cli"]
-target = "${XDG_CONFIG_HOME}/lazygit/themes/${slug}.yml"
+target = "${XDG_CONFIG_HOME}/lazygit/themes/${slug}-${variant}.yml"
 families = ["catppuccin", "dracula", "rose-pine"]
 
 [ports.k9s]
 name = "k9s"
 categories = ["cli"]
-target = "${XDG_CONFIG_HOME}/k9s/skins/${slug}.yaml"
+target = "${XDG_CONFIG_HOME}/k9s/skins/${slug}-${variant}.yaml"
 families = ["catppuccin", "dracula", "rose-pine"]
 
 [ports.yazi]
 name = "Yazi"
 categories = ["cli"]
-target = "${XDG_CONFIG_HOME}/yazi/flavors/${slug}.yazi/flavor.toml"
+target = "${XDG_CONFIG_HOME}/yazi/flavors/${slug}-${variant}.yazi/flavor.toml"
 families = ["catppuccin", "dracula", "rose-pine"]
 
 [ports.zellij]
 name = "Zellij"
 categories = ["terminal"]
-target = "${XDG_CONFIG_HOME}/zellij/themes/${slug}.kdl"
+target = "${XDG_CONFIG_HOME}/zellij/themes/${slug}-${variant}.kdl"
 families = ["catppuccin", "dracula", "rose-pine"]
 
 [ports.tmux]
 name = "tmux"
 categories = ["terminal"]
-target = "${XDG_CONFIG_HOME}/tmux/themes/${slug}.conf"
+target = "${XDG_CONFIG_HOME}/tmux/themes/${slug}-${variant}.conf"
 families = ["catppuccin", "dracula", "rose-pine"]
 
 [ports.helix]
 name = "Helix"
 categories = ["editor"]
-target = "${XDG_CONFIG_HOME}/helix/themes/${slug}.toml"
+target = "${XDG_CONFIG_HOME}/helix/themes/${slug}-${variant}.toml"
 families = ["catppuccin", "dracula", "base16", "rose-pine"]
 
 [ports.nvim]
 name = "Neovim"
 categories = ["editor"]
-target = "${XDG_DATA_HOME}/nvim/site/colors/${slug}.lua"
+target = "${XDG_DATA_HOME}/nvim/site/colors/${slug}-${variant}.lua"
 families = ["catppuccin", "dracula", "base16", "rose-pine"]
 
 [ports.vim]
 name = "Vim"
 categories = ["editor"]
-target = "${XDG_DATA_HOME}/vim/colors/${slug}.vim"
+target = "${XDG_DATA_HOME}/vim/colors/${slug}-${variant}.vim"
 families = ["catppuccin", "dracula", "base16", "rose-pine"]
 
 [ports.micro]
 name = "micro"
 categories = ["editor"]
-target = "${XDG_CONFIG_HOME}/micro/colorschemes/${slug}.micro"
+target = "${XDG_CONFIG_HOME}/micro/colorschemes/${slug}-${variant}.micro"
 families = ["catppuccin", "dracula", "base16"]
 
 [ports.zathura]
 name = "Zathura"
 categories = ["application"]
-target = "${XDG_CONFIG_HOME}/zathura/themes/${slug}"
+target = "${XDG_CONFIG_HOME}/zathura/themes/${slug}-${variant}"
 families = ["catppuccin", "dracula", "rose-pine"]
 
 [ports.rofi]
 name = "Rofi"
 categories = ["desktop"]
-target = "${XDG_CONFIG_HOME}/rofi/themes/${slug}.rasi"
+target = "${XDG_CONFIG_HOME}/rofi/themes/${slug}-${variant}.rasi"
 families = ["catppuccin", "dracula", "rose-pine"]
 
 [ports.dunst]
 name = "dunst"
 categories = ["desktop"]
-target = "${XDG_CONFIG_HOME}/dunst/themes/${slug}.conf"
+target = "${XDG_CONFIG_HOME}/dunst/themes/${slug}-${variant}.conf"
 families = ["catppuccin", "dracula", "rose-pine"]
 
 [ports.mako]
 name = "mako"
 categories = ["desktop"]
-target = "${XDG_CONFIG_HOME}/mako/themes/${slug}"
+target = "${XDG_CONFIG_HOME}/mako/themes/${slug}-${variant}"
 families = ["catppuccin", "rose-pine"]
 
 [ports.waybar]
 name = "Waybar"
 categories = ["desktop"]
-target = "${XDG_CONFIG_HOME}/waybar/themes/${slug}.css"
+target = "${XDG_CONFIG_HOME}/waybar/themes/${slug}-${variant}.css"
 families = ["catppuccin", "dracula", "rose-pine"]
 
 [ports.hyprland]
 name = "Hyprland"
 categories = ["desktop"]
-target = "${XDG_CONFIG_HOME}/hypr/themes/${slug}.conf"
+target = "${XDG_CONFIG_HOME}/hypr/themes/${slug}-${variant}.conf"
 families = ["catppuccin", "rose-pine"]
 
 [ports.sway]
 name = "Sway"
 categories = ["desktop"]
-target = "${XDG_CONFIG_HOME}/sway/themes/${slug}"
+target = "${XDG_CONFIG_HOME}/sway/themes/${slug}-${variant}"
 families = ["catppuccin", "base16"]
 
 [ports.i3]
 name = "i3"
 categories = ["desktop"]
-target = "${XDG_CONFIG_HOME}/i3/themes/${slug}"
+target = "${XDG_CONFIG_HOME}/i3/themes/${slug}-${variant}"
 families = ["catppuccin", "base16"]
 
 [ports.polybar]
 name = "Polybar"
 categories = ["desktop"]
-target = "${XDG_CONFIG_HOME}/polybar/themes/${slug}.ini"
+target = "${XDG_CONFIG_HOME}/polybar/themes/${slug}-${variant}.ini"
 families = ["catppuccin", "rose-pine"]
 
 [ports.starship]
 name = "Starship"
 categories = ["cli"]
-target = "${XDG_CONFIG_HOME}/starship/themes/${slug}.toml"
+target = "${XDG_CONFIG_HOME}/starship/themes/${slug}-${variant}.toml"
 families = ["catppuccin", "rose-pine"]
 
 [ports.fish]
 name = "fish"
 categories = ["cli"]
-target = "${XDG_CONFIG_HOME}/fish/themes/${name}.theme"
+target = "${XDG_CONFIG_HOME}/fish/themes/${name} ${variantName}.theme"
 families = ["catppuccin", "dracula", "base16", "rose-pine"]
 
 [ports.gitui]
 name = "GitUI"
 categories = ["cli"]
-target = "${XDG_CONFIG_HOME}/gitui/${slug}.ron"
+target = "${XDG_CONFIG_HOME}/gitui/${slug}-${variant}.ron"
 families = ["catppuccin", "base16"]
 
 [ports.gtk]
 name = "GTK"
 categories = ["desktop"]
-target = "${XDG_CONFIG_HOME}/gtk-3.0/themes/${slug}.css"
+target = "${XDG_CONFIG_HOME}/gtk-3.0/themes/${slug}-${variant}.css"
 families = ["catppuccin", "dracula", "rose-pine"]
 
 [ports.qutebrowser]
 name = "qutebrowser"
 categories = ["browser"]
-target = "${XDG_CONFIG_HOME}/qutebrowser/themes/${slug}.py"
+target = "${XDG_CONFIG_HOME}/qutebrowser/themes/${slug}-${variant}.py"
 families = ["catppuccin", "dracula", "rose-pine"]

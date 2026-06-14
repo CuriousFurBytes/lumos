@@ -6,85 +6,131 @@ import (
 	"testing"
 )
 
-func writeTheme(t *testing.T, dir, name, body string) string {
+func writeTheme(t *testing.T, dir, file, body string) string {
 	t.Helper()
-	td := filepath.Join(dir, name)
-	if err := os.MkdirAll(td, 0o755); err != nil {
+	p := filepath.Join(dir, file)
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(td, "theme.toml"), []byte(body), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	return td
+	return p
 }
 
-func TestLoad(t *testing.T) {
+const catppuccinYAML = `
+name: "Catppuccin"
+family: catppuccin
+source: "https://github.com/catppuccin/catppuccin"
+programs:
+  - name: alacritty
+    template: |
+      [colors.primary]
+      background = "${color.base}"
+      foreground = "${color.text}"
+  - name: bat
+    content: "static bat theme"
+    post: ["bat cache --build"]
+variants:
+  - id: latte
+    name: "Latte"
+    style: light
+    colors:
+      base: "#eff1f5"
+      text: "#4c4f69"
+  - id: mocha
+    name: "Mocha"
+    style: dark
+    colors:
+      base: "#1e1e2e"
+      text: "#cdd6f4"
+`
+
+func TestLoadParsesVariants(t *testing.T) {
 	dir := t.TempDir()
-	td := writeTheme(t, dir, "catppuccin-mocha", `
-name = "Catppuccin Mocha"
-family = "catppuccin"
-flavor = "mocha"
-source = "https://github.com/catppuccin/catppuccin"
+	p := writeTheme(t, dir, "catppuccin.yaml", catppuccinYAML)
 
-[[programs]]
-name = "alacritty"
-file = "alacritty.toml"
-
-[[programs]]
-name = "bat"
-target = "~/.config/bat/themes/mocha.tmTheme"
-file = "bat.tmTheme"
-post = ["bat cache --build"]
-`)
-
-	got, err := Load(td)
+	th, err := Load(p)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if got.Name != "Catppuccin Mocha" {
-		t.Errorf("Name = %q", got.Name)
+	if th.Name != "Catppuccin" {
+		t.Errorf("Name = %q", th.Name)
 	}
-	if got.Slug != "catppuccin-mocha" {
-		t.Errorf("Slug = %q, want catppuccin-mocha (from dir)", got.Slug)
+	if th.Slug != "catppuccin" {
+		t.Errorf("Slug = %q, want catppuccin (from filename)", th.Slug)
 	}
-	if got.Family != "catppuccin" {
-		t.Errorf("Family = %q", got.Family)
+	if len(th.Variants) != 2 {
+		t.Fatalf("variants = %d, want 2", len(th.Variants))
 	}
-	if len(got.Programs) != 2 {
-		t.Fatalf("Programs = %d, want 2", len(got.Programs))
+	if th.Variants[0].ID != "latte" || th.Variants[0].Style != "light" {
+		t.Errorf("variant[0] = %+v", th.Variants[0])
 	}
-	if got.Programs[1].Post[0] != "bat cache --build" {
-		t.Errorf("post = %v", got.Programs[1].Post)
+	if len(th.Programs) != 2 {
+		t.Fatalf("programs = %d, want 2", len(th.Programs))
 	}
-	if got.Dir != td {
-		t.Errorf("Dir = %q, want %q", got.Dir, td)
-	}
-}
-
-func TestLoadMissingNameIsError(t *testing.T) {
-	dir := t.TempDir()
-	td := writeTheme(t, dir, "broken", `family = "x"`)
-	if _, err := Load(td); err == nil {
-		t.Fatal("expected error for theme without name")
+	if th.Path != p {
+		t.Errorf("Path = %q, want %q", th.Path, p)
 	}
 }
 
-func TestLoadNoProgramsIsError(t *testing.T) {
+func TestVariantLookupAndDefault(t *testing.T) {
 	dir := t.TempDir()
-	td := writeTheme(t, dir, "empty", `name = "Empty"`)
-	if _, err := Load(td); err == nil {
-		t.Fatal("expected error for theme with no programs")
-	}
-}
-
-func TestDiscoverSortsBySlug(t *testing.T) {
-	dir := t.TempDir()
-	writeTheme(t, dir, "zzz", "name=\"Z\"\n[[programs]]\nname=\"vim\"\nfile=\"a\"\n")
-	writeTheme(t, dir, "aaa", "name=\"A\"\n[[programs]]\nname=\"vim\"\nfile=\"a\"\n")
-	// a directory without theme.toml must be ignored
-	if err := os.MkdirAll(filepath.Join(dir, "notatheme"), 0o755); err != nil {
+	th, err := Load(writeTheme(t, dir, "catppuccin.yaml", catppuccinYAML))
+	if err != nil {
 		t.Fatal(err)
 	}
+	v, ok := th.Variant("mocha")
+	if !ok || v.Name != "Mocha" {
+		t.Errorf("Variant(mocha) = %+v, %v", v, ok)
+	}
+	if _, ok := th.Variant("nope"); ok {
+		t.Error("unexpected variant")
+	}
+	if th.DefaultVariant().ID != "latte" {
+		t.Errorf("DefaultVariant = %q, want latte (first)", th.DefaultVariant().ID)
+	}
+}
+
+func TestVariantIDDefaultsFromName(t *testing.T) {
+	dir := t.TempDir()
+	body := `
+name: "Solo"
+programs:
+  - name: vim
+    content: "x"
+variants:
+  - name: "Soft Dark"
+    style: dark
+    colors: {}
+`
+	th, err := Load(writeTheme(t, dir, "solo.yaml", body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if th.Variants[0].ID != "soft-dark" {
+		t.Errorf("derived id = %q, want soft-dark", th.Variants[0].ID)
+	}
+}
+
+func TestLoadValidation(t *testing.T) {
+	dir := t.TempDir()
+	cases := map[string]string{
+		"no name":      "programs:\n  - name: vim\n    content: x\nvariants:\n  - {id: a, name: A}\n",
+		"no programs":  "name: X\nvariants:\n  - {id: a, name: A}\n",
+		"no variants":  "name: X\nprograms:\n  - {name: vim, content: x}\n",
+		"prog no name": "name: X\nprograms:\n  - {content: x}\nvariants:\n  - {id: a, name: A}\n",
+		"prog empty":   "name: X\nprograms:\n  - {name: vim}\nvariants:\n  - {id: a, name: A}\n",
+	}
+	for label, body := range cases {
+		if _, err := Load(writeTheme(t, dir, "bad.yaml", body)); err == nil {
+			t.Errorf("%s: expected validation error", label)
+		}
+	}
+}
+
+func TestDiscoverScansYAML(t *testing.T) {
+	dir := t.TempDir()
+	writeTheme(t, dir, "zzz.yaml", "name: Z\nprograms:\n  - {name: vim, content: x}\nvariants:\n  - {id: a, name: A}\n")
+	writeTheme(t, dir, "aaa.yml", "name: A\nprograms:\n  - {name: vim, content: x}\nvariants:\n  - {id: a, name: A}\n")
+	writeTheme(t, dir, "notes.txt", "ignore me")
 
 	themes, err := Discover(dir)
 	if err != nil {
@@ -101,7 +147,7 @@ func TestDiscoverSortsBySlug(t *testing.T) {
 func TestDiscoverMissingDir(t *testing.T) {
 	themes, err := Discover(filepath.Join(t.TempDir(), "nope"))
 	if err != nil {
-		t.Fatalf("Discover on missing dir should be empty, got %v", err)
+		t.Fatalf("Discover missing dir: %v", err)
 	}
 	if len(themes) != 0 {
 		t.Errorf("got %d, want 0", len(themes))

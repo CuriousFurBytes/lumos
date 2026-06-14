@@ -1,5 +1,5 @@
 // Package cli implements lumos' command-line interface: argument parsing,
-// the interactive theme picker, and the install/update/enable flows.
+// the interactive theme/variant picker, and the install/update/enable flows.
 package cli
 
 import (
@@ -36,11 +36,12 @@ const (
 
 // Options is the parsed command line.
 type Options struct {
-	Mode   Mode
-	Spec   string // --install argument
-	Name   string // theme name for enable/update
-	Enable bool   // --enable
-	DryRun bool   // --dry-run
+	Mode    Mode
+	Spec    string // --install argument
+	Name    string // theme slug for enable/update
+	Variant string // variant id for enable
+	Enable  bool   // --enable
+	DryRun  bool   // --dry-run
 }
 
 // ParseArgs turns raw arguments into Options.
@@ -62,7 +63,7 @@ func ParseArgs(args []string) (Options, error) {
 			opts.Enable = true
 		case "--install":
 			if i+1 >= len(args) {
-				return opts, fmt.Errorf("--install requires a github repo or local folder")
+				return opts, fmt.Errorf("--install requires a github repo, folder or file")
 			}
 			opts.Mode = ModeInstall
 			i++
@@ -81,22 +82,32 @@ func ParseArgs(args []string) (Options, error) {
 		}
 	}
 
-	// Reconcile positionals with flags.
 	switch {
 	case opts.Mode == ModeInstall:
-		// spec already captured; ignore extra positionals
+		// spec already captured
 	case len(positional) > 0:
 		if opts.Mode == ModeInteractive {
 			opts.Mode = ModeEnable
 		}
-		opts.Name = positional[0]
-		// `--enable <name>` is just "enable this theme"; the flag is
-		// only meaningful alongside --install.
-		opts.Enable = false
+		name, variant := splitThemeVariant(positional[0])
+		opts.Name = name
+		opts.Variant = variant
+		if len(positional) > 1 && opts.Variant == "" {
+			opts.Variant = positional[1]
+		}
+		opts.Enable = false // --enable is only meaningful with --install
 	case opts.Enable && opts.Mode == ModeInteractive:
 		return opts, fmt.Errorf("--enable requires a theme name or --install")
 	}
 	return opts, nil
+}
+
+// splitThemeVariant splits "theme/variant" into its parts.
+func splitThemeVariant(s string) (theme, variant string) {
+	if i := strings.IndexByte(s, '/'); i >= 0 {
+		return s[:i], s[i+1:]
+	}
+	return s, ""
 }
 
 // App carries the runtime dependencies, injectable for testing.
@@ -153,7 +164,7 @@ func (a *App) Run(args []string) int {
 	case ModeUpdate:
 		runErr = a.update(opts)
 	case ModeEnable:
-		runErr = a.enable(opts.Name, opts.DryRun)
+		runErr = a.enable(opts.Name, opts.Variant, opts.DryRun)
 	case ModeInteractive:
 		runErr = a.interactive(opts.DryRun)
 	}
@@ -164,9 +175,9 @@ func (a *App) Run(args []string) int {
 	return 0
 }
 
-func (a *App) currentTheme() string {
+func (a *App) state() config.State {
 	st, _ := config.LoadState(a.Paths.StateFile())
-	return st.Current
+	return st
 }
 
 func (a *App) list() error {
@@ -175,10 +186,10 @@ func (a *App) list() error {
 		return err
 	}
 	if len(themes) == 0 {
-		fmt.Fprintln(a.Out, "No themes found. Install one with 'lumos --install <repo|folder>'.")
+		fmt.Fprintln(a.Out, "No themes found. Install one with 'lumos --install <repo|folder|file>'.")
 		return nil
 	}
-	fmt.Fprint(a.Out, RenderThemeList(themes, a.currentTheme()))
+	fmt.Fprint(a.Out, RenderThemeList(themes, a.state().Current))
 	return nil
 }
 
@@ -188,37 +199,80 @@ func (a *App) interactive(dryRun bool) error {
 		return err
 	}
 	if len(themes) == 0 {
-		fmt.Fprintln(a.Out, "No themes found. Install one with 'lumos --install <repo|folder>'.")
+		fmt.Fprintln(a.Out, "No themes found. Install one with 'lumos --install <repo|folder|file>'.")
 		return nil
 	}
-	current := a.currentTheme()
-	fmt.Fprint(a.Out, RenderThemeList(themes, current))
+	st := a.state()
+	fmt.Fprint(a.Out, RenderThemeList(themes, st.Current))
 	fmt.Fprint(a.Out, "\nSelect a theme number (enter to cancel): ")
 
-	line, _ := bufio.NewReader(a.In).ReadString('\n')
-	idx, err := ParseSelection(strings.TrimSpace(line), len(themes))
+	reader := bufio.NewReader(a.In)
+	idx, err := readSelection(reader, len(themes))
 	if err != nil {
 		fmt.Fprintln(a.Out, "Cancelled.")
 		return nil
 	}
-	return a.applyTheme(themes[idx], dryRun)
+	th := themes[idx]
+
+	v, err := a.chooseVariant(reader, th, st.Variant)
+	if err != nil {
+		fmt.Fprintln(a.Out, "Cancelled.")
+		return nil
+	}
+	return a.applyVariant(th, v, dryRun)
 }
 
-func (a *App) enable(name string, dryRun bool) error {
+// chooseVariant returns the variant to apply: the only one if a theme has a
+// single variant, otherwise the user's interactive pick.
+func (a *App) chooseVariant(reader *bufio.Reader, th theme.Theme, currentVariant string) (theme.Variant, error) {
+	if len(th.Variants) == 1 {
+		return th.Variants[0], nil
+	}
+	fmt.Fprint(a.Out, "\n"+RenderVariantList(th, currentVariant))
+	fmt.Fprintf(a.Out, "\nSelect a variant for %s (enter to cancel): ", th.Name)
+	idx, err := readSelection(reader, len(th.Variants))
+	if err != nil {
+		return theme.Variant{}, err
+	}
+	return th.Variants[idx], nil
+}
+
+func (a *App) enable(name, variant string, dryRun bool) error {
 	themes, err := theme.Discover(a.Paths.ThemesDir())
 	if err != nil {
 		return err
 	}
 	for _, th := range themes {
-		if th.Slug == name {
-			return a.applyTheme(th, dryRun)
+		if th.Slug != name {
+			continue
 		}
+		v, err := a.resolveVariant(th, variant)
+		if err != nil {
+			return err
+		}
+		return a.applyVariant(th, v, dryRun)
 	}
 	return fmt.Errorf("theme %q not found (try 'lumos --list')", name)
 }
 
-func (a *App) applyTheme(th theme.Theme, dryRun bool) error {
-	progs, err := apply.Resolve(th, a.Paths)
+// resolveVariant picks the variant for a non-interactive enable: the named
+// one if given, the only one if unambiguous, otherwise an interactive prompt.
+func (a *App) resolveVariant(th theme.Theme, variant string) (theme.Variant, error) {
+	if variant != "" {
+		v, ok := th.Variant(variant)
+		if !ok {
+			return theme.Variant{}, fmt.Errorf("theme %q has no variant %q", th.Slug, variant)
+		}
+		return v, nil
+	}
+	if len(th.Variants) == 1 {
+		return th.Variants[0], nil
+	}
+	return a.chooseVariant(bufio.NewReader(a.In), th, a.state().Variant)
+}
+
+func (a *App) applyVariant(th theme.Theme, v theme.Variant, dryRun bool) error {
+	progs, err := apply.Render(th, v, a.Paths)
 	if err != nil {
 		return err
 	}
@@ -226,16 +280,17 @@ func (a *App) applyTheme(th theme.Theme, dryRun bool) error {
 	if err != nil {
 		return err
 	}
+	label := fmt.Sprintf("%s (%s)", th.Name, v.Name)
 	if dryRun {
-		fmt.Fprintf(a.Out, "[dry-run] would apply %q to %d program(s): %s\n",
-			th.Name, len(rep.Applied), strings.Join(rep.Applied, ", "))
+		fmt.Fprintf(a.Out, "[dry-run] would apply %s to %d program(s): %s\n",
+			label, len(rep.Applied), strings.Join(rep.Applied, ", "))
 		return nil
 	}
-	if err := config.SaveState(a.Paths.StateFile(), config.State{Current: th.Slug}); err != nil {
+	if err := config.SaveState(a.Paths.StateFile(), config.State{Current: th.Slug, Variant: v.ID}); err != nil {
 		return err
 	}
-	fmt.Fprintf(a.Out, "Applied %q to %d program(s): %s\n",
-		th.Name, len(rep.Applied), strings.Join(rep.Applied, ", "))
+	fmt.Fprintf(a.Out, "Applied %s to %d program(s): %s\n",
+		label, len(rep.Applied), strings.Join(rep.Applied, ", "))
 	for _, w := range rep.Warnings {
 		fmt.Fprintln(a.Err, "  warning:", w)
 	}
@@ -249,7 +304,7 @@ func (a *App) install(opts Options) error {
 	}
 	fmt.Fprintf(a.Out, "Installed: %s\n", strings.Join(slugs, ", "))
 	if opts.Enable && len(slugs) > 0 {
-		return a.enable(slugs[0], opts.DryRun)
+		return a.enable(slugs[0], opts.Variant, opts.DryRun)
 	}
 	return nil
 }
@@ -275,8 +330,8 @@ func RenderThemeList(themes []theme.Theme, current string) string {
 		if th.Slug == current {
 			marker = "*"
 		}
-		fmt.Fprintf(&b, " %s %d) %-22s %s (%d program(s))\n",
-			marker, i+1, th.Slug, th.Name, len(th.Programs))
+		fmt.Fprintf(&b, " %s %d) %-16s %-18s %d variant(s)\n",
+			marker, i+1, th.Slug, th.Name, len(th.Variants))
 	}
 	if current != "" {
 		fmt.Fprintf(&b, "\nCurrent: %s\n", current)
@@ -284,6 +339,29 @@ func RenderThemeList(themes []theme.Theme, current string) string {
 		b.WriteString("\nCurrent: (none)\n")
 	}
 	return b.String()
+}
+
+// RenderVariantList formats a theme's variants, marking the current one.
+func RenderVariantList(th theme.Theme, current string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Variants of %s:\n", th.Name)
+	for i, v := range th.Variants {
+		marker := " "
+		if v.ID == current {
+			marker = "*"
+		}
+		style := v.Style
+		if style == "" {
+			style = "-"
+		}
+		fmt.Fprintf(&b, " %s %d) %-12s %-14s [%s]\n", marker, i+1, v.ID, v.Name, style)
+	}
+	return b.String()
+}
+
+func readSelection(reader *bufio.Reader, n int) (int, error) {
+	line, _ := reader.ReadString('\n')
+	return ParseSelection(strings.TrimSpace(line), n)
 }
 
 // ParseSelection validates a 1-based menu choice against n options and
@@ -305,10 +383,10 @@ func ParseSelection(input string, n int) (int, error) {
 const helpText = `lumos — switch themes across all your programs at once
 
 USAGE:
-    lumos                         Interactively pick a theme to apply
-    lumos <name>                  Apply a theme by slug
+    lumos                         Interactively pick a theme (and variant) to apply
+    lumos <name> [variant]        Apply a theme; <name>/<variant> also works
     lumos --list                  List available themes and the current one
-    lumos --install <src>         Install a theme from a github repo or local folder
+    lumos --install <src>         Install from a github repo, folder or .yaml file
     lumos --install <src> --enable    Install and immediately apply it
     lumos --update [name]         Update one theme, or all themes when omitted
 
@@ -319,6 +397,10 @@ FLAGS:
     --version       Print version
     --help,    -h   Show this help
 
+A theme is a single YAML file with one or more variants. When a theme has
+several variants lumos asks which one to apply; with a single variant it is
+used automatically.
+
 Themes live in $XDG_CONFIG_HOME/lumos/themes (default ~/.config/lumos/themes).
-Drop your own theme bundles there to have lumos manage them.
+Drop your own <name>.yaml theme files there to have lumos manage them.
 `

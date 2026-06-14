@@ -76,6 +76,7 @@ func (p Paths) Expand(s string) string {
 // State is the persisted selection.
 type State struct {
 	Current string `toml:"current"`
+	Variant string `toml:"variant"`
 }
 
 // LoadState reads state from file. A missing file yields a zero State and

@@ -65,15 +65,15 @@ func TestStateRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "lumos", "state.toml")
 
-	if err := SaveState(file, State{Current: "catppuccin-mocha"}); err != nil {
+	if err := SaveState(file, State{Current: "catppuccin", Variant: "mocha"}); err != nil {
 		t.Fatalf("SaveState: %v", err)
 	}
 	got, err := LoadState(file)
 	if err != nil {
 		t.Fatalf("LoadState: %v", err)
 	}
-	if got.Current != "catppuccin-mocha" {
-		t.Errorf("Current = %q, want catppuccin-mocha", got.Current)
+	if got.Current != "catppuccin" || got.Variant != "mocha" {
+		t.Errorf("got %+v, want {catppuccin mocha}", got)
 	}
 }
 
