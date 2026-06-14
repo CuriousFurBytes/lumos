@@ -1,0 +1,94 @@
+name: "Catppuccin"
+family: catppuccin
+source: "https://github.com/catppuccin/catppuccin"
+description: "Soothing pastel theme for the high-spirited."
+
+# Programs are declared once; ${color.X} is filled from the active variant.
+programs:
+  - name: alacritty
+    template: |
+      # Catppuccin for Alacritty
+      [colors.primary]
+      background = "${color.base}"
+      foreground = "${color.text}"
+
+      [colors.normal]
+      black   = "${color.surface1}"
+      red     = "${color.red}"
+      green   = "${color.green}"
+      yellow  = "${color.yellow}"
+      blue    = "${color.blue}"
+      magenta = "${color.pink}"
+      cyan    = "${color.teal}"
+      white   = "${color.subtext1}"
+  - name: kitty
+    template: |
+      # Catppuccin for kitty
+      foreground ${color.text}
+      background ${color.base}
+      color0     ${color.surface1}
+      color1     ${color.red}
+      color2     ${color.green}
+      color3     ${color.yellow}
+      color4     ${color.blue}
+      color5     ${color.pink}
+      color6     ${color.teal}
+      color7     ${color.subtext1}
+
+variants:
+  - id: latte
+    name: "Latte"
+    style: light
+    colors:
+      base: "#eff1f5"
+      text: "#4c4f69"
+      subtext1: "#5c5f77"
+      surface1: "#bcc0cc"
+      red: "#d20f39"
+      green: "#40a02b"
+      yellow: "#df8e1d"
+      blue: "#1e66f5"
+      pink: "#ea76cb"
+      teal: "#179299"
+  - id: frappe
+    name: "Frappé"
+    style: dark
+    colors:
+      base: "#303446"
+      text: "#c6d0f5"
+      subtext1: "#b5bfe2"
+      surface1: "#51576d"
+      red: "#e78284"
+      green: "#a6d189"
+      yellow: "#e5c890"
+      blue: "#8caaee"
+      pink: "#f4b8e4"
+      teal: "#81c8be"
+  - id: macchiato
+    name: "Macchiato"
+    style: dark
+    colors:
+      base: "#24273a"
+      text: "#cad3f5"
+      subtext1: "#b8c0e0"
+      surface1: "#494d64"
+      red: "#ed8796"
+      green: "#a6da95"
+      yellow: "#eed49f"
+      blue: "#8aadf4"
+      pink: "#f5bde6"
+      teal: "#8bd5ca"
+  - id: mocha
+    name: "Mocha"
+    style: dark
+    colors:
+      base: "#1e1e2e"
+      text: "#cdd6f4"
+      subtext1: "#bac2de"
+      surface1: "#45475a"
+      red: "#f38ba8"
+      green: "#a6e3a1"
+      yellow: "#f9e2af"
+      blue: "#89b4fa"
+      pink: "#f5c2e7"
+      teal: "#94e2d5"

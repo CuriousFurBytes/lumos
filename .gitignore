@@ -1,0 +1,13 @@
+# Binaries
+/lumos
+/dist/
+*.exe
+
+# Test / coverage output
+coverage.out
+*.test
+
+# Editor noise
+.idea/
+.vscode/
+*.swp
