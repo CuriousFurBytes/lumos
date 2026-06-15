@@ -2,11 +2,13 @@ package cli
 
 import (
 	"bytes"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/CuriousFurBytes/lumos/internal/apply"
+	"github.com/CuriousFurBytes/lumos/internal/builtin"
 	"github.com/CuriousFurBytes/lumos/internal/config"
 	"github.com/CuriousFurBytes/lumos/internal/source"
 	"github.com/CuriousFurBytes/lumos/internal/theme"
@@ -122,11 +124,12 @@ func newTestApp(t *testing.T, in string) (*App, *bytes.Buffer) {
 
 	out := &bytes.Buffer{}
 	app := &App{
-		Paths:  config.Resolve(),
-		Runner: noopRunner{},
-		In:     strings.NewReader(in),
-		Out:    out,
-		Err:    out,
+		Paths:    config.Resolve(),
+		Runner:   noopRunner{},
+		Detector: allInstalled{},
+		In:       strings.NewReader(in),
+		Out:      out,
+		Err:      out,
 	}
 	return app, out
 }
@@ -135,9 +138,39 @@ type noopRunner struct{}
 
 func (noopRunner) Run(string) error { return nil }
 
+// allInstalled treats every program as present so the apply flow renders the
+// built-in themes' full program set, independent of the host machine.
+type allInstalled struct{}
+
+func (allInstalled) Installed(string) bool { return true }
+
 func TestInteractiveSelectThemeThenVariant(t *testing.T) {
-	// Theme #1 (catppuccin) has 4 variants, so a second prompt appears.
-	app, out := newTestApp(t, "1\n4\n")
+	app, out := newTestApp(t, "")
+	// catppuccin has several variants, so selecting it prompts for a variant
+	// too. Discover the menu positions instead of hard-coding them, since the
+	// built-in theme set grows over time.
+	if _, err := builtin.Seed(app.Paths.ThemesDir()); err != nil {
+		t.Fatal(err)
+	}
+	themes, err := theme.Discover(app.Paths.ThemesDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	themeIdx, variantIdx := -1, -1
+	for i, th := range themes {
+		if th.Slug == "catppuccin" {
+			themeIdx = i + 1
+			for j, v := range th.Variants {
+				if v.ID == "mocha" {
+					variantIdx = j + 1
+				}
+			}
+		}
+	}
+	if themeIdx < 0 || variantIdx < 0 {
+		t.Fatalf("could not locate catppuccin/mocha in seeded themes")
+	}
+	app.In = strings.NewReader(fmt.Sprintf("%d\n%d\n", themeIdx, variantIdx))
 	if code := app.Run(nil); code != 0 {
 		t.Fatalf("exit %d\n%s", code, out.String())
 	}
@@ -153,7 +186,7 @@ func TestInteractiveSelectThemeThenVariant(t *testing.T) {
 		t.Fatal(err)
 	}
 	v, _ := th.Variant("mocha")
-	progs, err := apply.Render(th, v, app.Paths)
+	progs, _, err := apply.Render(th, v, app.Paths, app.Detector)
 	if err != nil {
 		t.Fatal(err)
 	}

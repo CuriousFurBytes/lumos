@@ -127,23 +127,25 @@ func splitThemeVariant(s string) (theme, variant string) {
 
 // App carries the runtime dependencies, injectable for testing.
 type App struct {
-	Paths  config.Paths
-	Runner apply.Runner
-	Cloner source.Cloner
-	In     io.Reader
-	Out    io.Writer
-	Err    io.Writer
+	Paths    config.Paths
+	Runner   apply.Runner
+	Detector apply.Detector
+	Cloner   source.Cloner
+	In       io.Reader
+	Out      io.Writer
+	Err      io.Writer
 }
 
 // New builds an App wired to the real environment.
 func New() *App {
 	return &App{
-		Paths:  config.Resolve(),
-		Runner: apply.ExecRunner{},
-		Cloner: source.GitCloner{},
-		In:     os.Stdin,
-		Out:    os.Stdout,
-		Err:    os.Stderr,
+		Paths:    config.Resolve(),
+		Runner:   apply.ExecRunner{},
+		Detector: apply.PathDetector{},
+		Cloner:   source.GitCloner{},
+		In:       os.Stdin,
+		Out:      os.Stdout,
+		Err:      os.Stderr,
 	}
 }
 
@@ -287,7 +289,7 @@ func (a *App) resolveVariant(th theme.Theme, variant string) (theme.Variant, err
 }
 
 func (a *App) applyVariant(th theme.Theme, v theme.Variant, dryRun bool) error {
-	progs, err := apply.Render(th, v, a.Paths)
+	progs, skipped, err := apply.Render(th, v, a.Paths, a.Detector)
 	if err != nil {
 		return err
 	}
@@ -299,6 +301,7 @@ func (a *App) applyVariant(th theme.Theme, v theme.Variant, dryRun bool) error {
 	if dryRun {
 		fmt.Fprintf(a.Out, "[dry-run] would apply %s to %d program(s): %s\n",
 			label, len(rep.Applied), strings.Join(rep.Applied, ", "))
+		a.reportSkipped(skipped)
 		return nil
 	}
 	if err := config.SaveState(a.Paths.StateFile(), config.State{Current: th.Slug, Variant: v.ID}); err != nil {
@@ -306,10 +309,21 @@ func (a *App) applyVariant(th theme.Theme, v theme.Variant, dryRun bool) error {
 	}
 	fmt.Fprintf(a.Out, "Applied %s to %d program(s): %s\n",
 		label, len(rep.Applied), strings.Join(rep.Applied, ", "))
+	a.reportSkipped(skipped)
 	for _, w := range rep.Warnings {
 		fmt.Fprintln(a.Err, "  warning:", w)
 	}
 	return nil
+}
+
+// reportSkipped tells the user which themed programs were left untouched
+// because they are not installed on the system.
+func (a *App) reportSkipped(skipped []string) {
+	if len(skipped) == 0 {
+		return
+	}
+	fmt.Fprintf(a.Out, "Skipped %d not-installed program(s): %s\n",
+		len(skipped), strings.Join(skipped, ", "))
 }
 
 func (a *App) install(opts Options) error {

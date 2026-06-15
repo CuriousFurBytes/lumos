@@ -47,6 +47,7 @@ families = ["catppuccin", "rose-pine"]
 [ports.wezterm-lua]
 name = "WezTerm (lua)"
 categories = ["terminal"]
+detect = "wezterm"
 target = "${XDG_CONFIG_HOME}/wezterm/colors/${slug}-${variant}.lua"
 families = ["catppuccin", "dracula"]
 
@@ -216,6 +217,7 @@ families = ["catppuccin", "base16"]
 [ports.gtk]
 name = "GTK"
 categories = ["desktop"]
+detect = "gsettings"
 target = "${XDG_CONFIG_HOME}/gtk-3.0/themes/${slug}-${variant}.css"
 families = ["catppuccin", "dracula", "rose-pine"]
 

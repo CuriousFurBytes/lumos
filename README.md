@@ -12,6 +12,8 @@ manifest with the theme's metadata and one or more **variants** (e.g.
 light/dark flavours, each a colour palette), plus a `programs/` folder where
 **every file is one program's config**. lumos fills the active variant's
 palette into those files and installs each one where its program expects it.
+Programs that aren't installed on your system are skipped automatically, so a
+broad theme bundle only touches the tools you actually have.
 
 lumos ships with a **port base** seeded from the canonical port lists of the
 major theming projects — [Catppuccin](https://github.com/catppuccin/catppuccin),
@@ -216,6 +218,10 @@ A file with no tokens is installed verbatim for every variant.
   either form.
 - Reload hooks (e.g. `bat cache --build`) come from the registry entry and are
   **best-effort**: if a program isn't installed, lumos warns and carries on.
+- lumos only themes programs it finds installed: it looks for each port's
+  executable on `$PATH` (the port key, or the port's `detect` override when the
+  binary name differs, e.g. `wezterm-lua` → `wezterm`). Programs whose binary is
+  absent are reported as skipped rather than written.
 
 ---
 

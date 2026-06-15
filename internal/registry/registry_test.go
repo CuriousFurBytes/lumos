@@ -140,3 +140,41 @@ func TestEveryPortHasFamiliesAndCategories(t *testing.T) {
 		}
 	}
 }
+
+func TestCommandDefaultsToPortKey(t *testing.T) {
+	// Most programs are detected by an executable that shares the port key
+	// (alacritty, kitty, bat …), so Command falls back to that key.
+	p := Port{}
+	if got := p.Command("alacritty"); got != "alacritty" {
+		t.Errorf("Command fallback = %q, want port key", got)
+	}
+}
+
+func TestCommandUsesExplicitDetect(t *testing.T) {
+	// Some ports install a file for a program whose binary differs from the
+	// port key (e.g. wezterm-lua is provided by the `wezterm` binary).
+	p := Port{Detect: "wezterm"}
+	if got := p.Command("wezterm-lua"); got != "wezterm" {
+		t.Errorf("Command = %q, want explicit detect binary", got)
+	}
+}
+
+func TestPortsWithDistinctBinariesDeclareDetect(t *testing.T) {
+	// Ports whose port key is not their executable name must declare an
+	// explicit detect binary, otherwise lumos would never find them on PATH.
+	want := map[string]string{
+		"wezterm-lua": "wezterm",
+		"nvim":        "nvim",
+		"gtk":         "gsettings",
+	}
+	all := All()
+	for key, bin := range want {
+		p, ok := all[key]
+		if !ok {
+			t.Fatalf("missing port %q", key)
+		}
+		if got := p.Command(key); got != bin {
+			t.Errorf("port %q command = %q, want %q", key, got, bin)
+		}
+	}
+}
