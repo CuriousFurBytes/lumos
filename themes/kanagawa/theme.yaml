@@ -1,0 +1,34 @@
+name: "Kanagawa"
+family: kanagawa
+source: "https://github.com/rebelot/kanagawa.nvim"
+description: "Dark theme inspired by the colours of Hokusai's Great Wave."
+
+variants:
+  - id: wave
+    name: "Wave"
+    style: dark
+    colors:
+      base: "#1f1f28"
+      text: "#dcd7ba"
+      black: "#16161d"
+      red: "#c34043"
+      green: "#76946a"
+      yellow: "#c0a36e"
+      blue: "#7e9cd8"
+      magenta: "#957fb8"
+      cyan: "#6a9589"
+      white: "#dcd7ba"
+  - id: lotus
+    name: "Lotus"
+    style: light
+    colors:
+      base: "#f2ecbc"
+      text: "#545464"
+      black: "#e7dba0"
+      red: "#c84053"
+      green: "#6f894e"
+      yellow: "#cc6d00"
+      blue: "#4d699b"
+      magenta: "#b35b79"
+      cyan: "#597b75"
+      white: "#545464"

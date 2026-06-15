@@ -1,0 +1,45 @@
+name: "Rosé Pine"
+family: rose-pine
+source: "https://github.com/rose-pine"
+description: "All natural pine, faux fur and a bit of soho vibes."
+
+variants:
+  - id: main
+    name: "Main"
+    style: dark
+    colors:
+      base: "#191724"
+      text: "#e0def4"
+      overlay: "#26233a"
+      love: "#eb6f92"
+      gold: "#f6c177"
+      rose: "#ebbcba"
+      pine: "#31748f"
+      foam: "#9ccfd8"
+      iris: "#c4a7e7"
+  - id: moon
+    name: "Moon"
+    style: dark
+    colors:
+      base: "#232136"
+      text: "#e0def4"
+      overlay: "#2a283e"
+      love: "#eb6f92"
+      gold: "#f6c177"
+      rose: "#ea9a97"
+      pine: "#3e8fb0"
+      foam: "#9ccfd8"
+      iris: "#c4a7e7"
+  - id: dawn
+    name: "Dawn"
+    style: light
+    colors:
+      base: "#faf4ed"
+      text: "#575279"
+      overlay: "#f2e9e1"
+      love: "#b4637a"
+      gold: "#ea9d34"
+      rose: "#d7827e"
+      pine: "#286983"
+      foam: "#56949f"
+      iris: "#907aa9"
