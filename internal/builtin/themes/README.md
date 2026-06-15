@@ -7,13 +7,13 @@ This directory contains all available themes for the Lumos global theme switcher
 ```
 themes/
 ├── aquadrive/
-│   ├── theme.yaml             # Theme metadata and color variants
-│   └── programs/
-│       ├── alacritty.toml     # Alacritty terminal configuration
-│       └── kitty.conf         # Kitty terminal configuration
+│   ├── theme.yaml           # Theme metadata and color variants
+│   └── ports/
+│       ├── alacritty.toml   # Alacritty terminal configuration
+│       └── kitty.conf       # Kitty terminal configuration
 ├── catppuccin/
 │   ├── theme.yaml
-│   └── programs/
+│   └── ports/
 │       ├── alacritty.toml
 │       └── kitty.conf
 └── [... other themes ...]
@@ -46,14 +46,14 @@ variants:
       white: "#XXXXXX"
 ```
 
-## Program Configurations
+## Port Configurations
 
-Program files use the following color variable placeholders:
+Port files use the following color variable placeholders:
 - `${color.base}` or `${base}` - Background color
 - `${color.text}` or `${text}` - Foreground color
 - `${color.black}`, `${color.red}`, etc. - Standard color names
 
-### Supported Programs
+### Supported Ports
 
 - **alacritty.toml** - Alacritty terminal emulator
 - **kitty.conf** - Kitty terminal emulator
@@ -62,8 +62,8 @@ Program files use the following color variable placeholders:
 
 1. Create a new directory under `themes/{theme-slug}/`
 2. Add `theme.yaml` with metadata and color variants
-3. Create `programs/` subdirectory with terminal configurations
-4. Use color placeholders in program configuration files
+3. Create `ports/` subdirectory with terminal configurations
+4. Use color placeholders in port configuration files
 
 ## Theme Sources
 
