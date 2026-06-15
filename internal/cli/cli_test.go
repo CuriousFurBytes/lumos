@@ -148,7 +148,7 @@ func TestInteractiveSelectThemeThenVariant(t *testing.T) {
 	if st.Current != "catppuccin" || st.Variant != "mocha" {
 		t.Fatalf("state = %+v, want catppuccin/mocha", st)
 	}
-	th, err := theme.Load(filepath.Join(app.Paths.ThemesDir(), "catppuccin.yaml"))
+	th, err := theme.Load(filepath.Join(app.Paths.ThemesDir(), "catppuccin.zip"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,15 +205,17 @@ func TestInstallAndEnableFlow(t *testing.T) {
 	app, out := newTestApp(t, "")
 	app.Cloner = fakeCloner{}
 
-	src := t.TempDir()
-	writeFile(t, filepath.Join(src, "mine.yaml"),
-		"name: Mine\nprograms:\n  - {name: alacritty, content: \"# x\"}\nvariants:\n  - {id: only, name: Only}\n")
+	// A bundle directory: manifest + a program file under programs/.
+	bundle := filepath.Join(t.TempDir(), "mine")
+	writeFile(t, filepath.Join(bundle, "theme.yaml"),
+		"name: Mine\nvariants:\n  - {id: only, name: Only, colors: {base: \"#000000\"}}\n")
+	writeFile(t, filepath.Join(bundle, "programs", "alacritty.toml"), "bg = \"${color.base}\"")
 
-	if code := app.Run([]string{"--install", filepath.Join(src, "mine.yaml"), "--enable"}); code != 0 {
+	if code := app.Run([]string{"--install", bundle, "--enable"}); code != 0 {
 		t.Fatalf("exit %d\n%s", code, out.String())
 	}
-	if !fileExists(filepath.Join(app.Paths.ThemesDir(), "mine.yaml")) {
-		t.Error("theme not installed")
+	if !fileExists(filepath.Join(app.Paths.ThemesDir(), "mine.zip")) {
+		t.Error("theme not installed as a zip")
 	}
 	st, _ := config.LoadState(app.Paths.StateFile())
 	if st.Current != "mine" || st.Variant != "only" {

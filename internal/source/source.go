@@ -1,8 +1,10 @@
-// Package source installs and updates theme files from git repositories,
-// local folders or single local files.
+// Package source installs and updates theme bundles from git repositories,
+// local folders or local .zip files. Installed themes are always stored as
+// <slug>.zip in the themes directory.
 package source
 
 import (
+	"archive/zip"
 	"fmt"
 	"io"
 	"os"
@@ -14,9 +16,9 @@ import (
 	"github.com/CuriousFurBytes/lumos/internal/theme"
 )
 
-// originExt is the suffix of the sidecar file recording where an installed
-// theme came from, so it can be updated later. For theme "dracula" the
-// sidecar is "dracula.origin" alongside "dracula.yaml".
+// originExt is the suffix of the sidecar recording where an installed theme
+// came from. For theme "dracula" the sidecar is "dracula.origin" alongside
+// "dracula.zip".
 const originExt = ".origin"
 
 // Cloner fetches a git repository into a directory. It is an interface so
@@ -55,9 +57,10 @@ func NormalizeGitURL(spec string) string {
 	}
 }
 
-// Install installs the theme file(s) referenced by spec — a single local
-// file, a local folder, or a git repository reference — into themesDir,
-// recording each theme's origin. It returns the installed slugs.
+// Install installs the theme bundle(s) referenced by spec — a local .zip
+// file, a bundle directory, a folder of bundles, or a git repository — into
+// themesDir as <slug>.zip, recording each theme's origin. It returns the
+// installed slugs.
 func Install(spec, themesDir string, cloner Cloner) ([]string, error) {
 	src, origin, cleanup, err := materialize(spec, cloner)
 	if err != nil {
@@ -67,8 +70,8 @@ func Install(spec, themesDir string, cloner Cloner) ([]string, error) {
 	return installFrom(src, origin, themesDir)
 }
 
-// materialize turns spec into a local path to scan, plus the origin string
-// to record (the original spec/URL).
+// materialize turns spec into a local path to scan plus the origin string to
+// record (the original spec/URL).
 func materialize(spec string, cloner Cloner) (src, origin string, cleanup func(), err error) {
 	cleanup = func() {}
 	if _, statErr := os.Stat(spec); statErr == nil {
@@ -94,24 +97,28 @@ func materialize(spec string, cloner Cloner) (src, origin string, cleanup func()
 }
 
 func installFrom(src, origin, themesDir string) ([]string, error) {
-	files, err := findThemeFiles(src)
+	bundles, err := findBundles(src)
 	if err != nil {
 		return nil, err
 	}
-	if len(files) == 0 {
-		return nil, fmt.Errorf("no theme files found in %s", origin)
+	if len(bundles) == 0 {
+		return nil, fmt.Errorf("no theme bundles found in %s", origin)
 	}
 	if err := os.MkdirAll(themesDir, 0o755); err != nil {
 		return nil, err
 	}
 	var slugs []string
-	for _, f := range files {
-		th, err := theme.Load(f)
+	for _, b := range bundles {
+		th, err := theme.Load(b)
 		if err != nil {
 			return nil, err
 		}
-		dest := filepath.Join(themesDir, th.Slug+".yaml")
-		if err := copyFile(f, dest); err != nil {
+		dest := filepath.Join(themesDir, th.Slug+".zip")
+		if isZip(b) {
+			if err := copyFile(b, dest); err != nil {
+				return nil, err
+			}
+		} else if err := zipDir(b, dest); err != nil {
 			return nil, err
 		}
 		if err := os.WriteFile(filepath.Join(themesDir, th.Slug+originExt), []byte(origin+"\n"), 0o644); err != nil {
@@ -167,20 +174,29 @@ func readOrigin(themesDir, slug string) (string, error) {
 	return strings.TrimSpace(string(b)), nil
 }
 
-// findThemeFiles returns the theme files reachable from root. If root is a
-// file it is returned directly; otherwise the tree is walked (skipping
-// .git) and every file that parses as a theme is collected.
-func findThemeFiles(root string) ([]string, error) {
+func isZip(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir() && strings.EqualFold(filepath.Ext(path), ".zip")
+}
+
+// findBundles returns the theme bundles reachable from root: a single .zip
+// file, a single bundle directory, or — for a folder/clone — every .zip and
+// every directory containing a manifest found by walking the tree.
+func findBundles(root string) ([]string, error) {
 	info, err := os.Stat(root)
 	if err != nil {
 		return nil, err
 	}
 	if !info.IsDir() {
-		if theme.HasThemeExt(root) {
+		if isZip(root) {
 			return []string{root}, nil
 		}
 		return nil, nil
 	}
+	if _, err := os.Stat(filepath.Join(root, theme.Manifest)); err == nil {
+		return []string{root}, nil
+	}
+
 	var found []string
 	err = filepath.Walk(root, func(path string, fi os.FileInfo, err error) error {
 		if err != nil {
@@ -190,17 +206,56 @@ func findThemeFiles(root string) ([]string, error) {
 			if fi.Name() == ".git" {
 				return filepath.SkipDir
 			}
+			if _, e := os.Stat(filepath.Join(path, theme.Manifest)); e == nil {
+				found = append(found, path)
+				return filepath.SkipDir // don't descend into a bundle
+			}
 			return nil
 		}
-		if !theme.HasThemeExt(path) {
-			return nil
-		}
-		if _, lerr := theme.Load(path); lerr == nil {
+		if strings.EqualFold(filepath.Ext(path), ".zip") {
 			found = append(found, path)
 		}
 		return nil
 	})
 	return found, err
+}
+
+// zipDir packs the bundle directory dir into a zip at dest.
+func zipDir(dir, dest string) error {
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+		return err
+	}
+	f, err := os.Create(dest)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	zw := zip.NewWriter(f)
+	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return err
+		}
+		rel, err := filepath.Rel(dir, path)
+		if err != nil {
+			return err
+		}
+		w, err := zw.Create(filepath.ToSlash(rel))
+		if err != nil {
+			return err
+		}
+		in, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer in.Close()
+		_, err = io.Copy(w, in)
+		return err
+	})
+	if err != nil {
+		zw.Close()
+		return err
+	}
+	return zw.Close()
 }
 
 // copyTree recursively copies src into dst, skipping any .git directory.

@@ -42,9 +42,11 @@ func (ExecRunner) Run(cmd string) error {
 
 var colorToken = regexp.MustCompile(`\$\{color\.([a-zA-Z0-9_-]+)\}`)
 
-// Render turns a theme's programs into installable units for variant v:
-// templates have their ${color.KEY} tokens replaced from the variant
-// palette, and target paths are resolved from the theme or the registry.
+// Render turns a theme's discovered program files into installable units for
+// variant v: ${color.KEY} tokens are replaced from the variant palette, and
+// each program's destination and reload hooks come from the registry (keyed
+// by the program's port). A program whose port is not in the registry is an
+// error, since lumos cannot know where its file belongs.
 func Render(t theme.Theme, v theme.Variant, paths config.Paths) ([]ResolvedProgram, error) {
 	pathRepl := strings.NewReplacer(
 		"${slug}", t.Slug,
@@ -54,40 +56,27 @@ func Render(t theme.Theme, v theme.Variant, paths config.Paths) ([]ResolvedProgr
 	)
 	out := make([]ResolvedProgram, 0, len(t.Programs))
 	for _, p := range t.Programs {
-		port, known := registry.Lookup(p.Name)
-
-		target := p.Target
-		if target == "" {
-			target = port.Target
+		port, known := registry.Lookup(p.Port)
+		if !known {
+			return nil, fmt.Errorf("program %q: unknown port, lumos has no install target for it", p.Port)
 		}
-		if target == "" {
-			return nil, fmt.Errorf("program %q: unknown port and no target given", p.Name)
-		}
-		target = paths.Expand(pathRepl.Replace(target))
+		target := paths.Expand(pathRepl.Replace(port.Target))
 
-		content := p.Content
-		if content == "" {
-			var rerr error
-			content = colorToken.ReplaceAllStringFunc(p.Template, func(tok string) string {
-				key := colorToken.FindStringSubmatch(tok)[1]
-				val, ok := v.Colors[key]
-				if !ok {
-					rerr = fmt.Errorf("program %q: variant %q has no color %q", p.Name, v.ID, key)
-				}
-				return val
-			})
-			if rerr != nil {
-				return nil, rerr
+		var rerr error
+		content := colorToken.ReplaceAllStringFunc(p.Template, func(tok string) string {
+			key := colorToken.FindStringSubmatch(tok)[1]
+			val, ok := v.Colors[key]
+			if !ok {
+				rerr = fmt.Errorf("program %q: variant %q has no color %q", p.Port, v.ID, key)
 			}
-		}
-
-		post := p.Post
-		if post == nil {
-			post = port.Post
+			return val
+		})
+		if rerr != nil {
+			return nil, rerr
 		}
 
 		out = append(out, ResolvedProgram{
-			Name: p.Name, Target: target, Content: content, Post: post, Known: known,
+			Name: p.Port, Target: target, Content: content, Post: port.Post, Known: known,
 		})
 	}
 	return out, nil

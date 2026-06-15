@@ -1,0 +1,14 @@
+# Dracula for Alacritty
+[colors.primary]
+background = "${color.base}"
+foreground = "${color.text}"
+
+[colors.normal]
+black   = "${color.currentline}"
+red     = "${color.red}"
+green   = "${color.green}"
+yellow  = "${color.yellow}"
+blue    = "${color.purple}"
+magenta = "${color.pink}"
+cyan    = "${color.cyan}"
+white   = "${color.text}"
