@@ -231,11 +231,15 @@ templates understand `${slug}`, `${variant}`, `${name}`, `${variantName}` and
 the XDG/`$HOME`/`~` placeholders.
 
 Covered programs include terminals (Alacritty, kitty, WezTerm, foot, Ghostty,
-Rio), CLI tools (bat, delta, btop, bottom, fzf, lazygit, k9s, yazi, gitui),
-editors (Helix, Neovim, Vim, micro), shells/prompts (fish, starship) and
-desktop bits (rofi, dunst, mako, waybar, Hyprland, sway, i3, polybar, GTK) —
-among others. To support a program lumos doesn't know yet, add it to the port
-base.
+Rio, iTerm2, Konsole, Tilix, Tabby, Warp, Fluent Terminal, GNOME Terminal),
+CLI tools (bat, delta, btop, bottom, fzf, lazygit, k9s, yazi, gitui, atuin,
+eza, glamour, gh-dash, asciinema, ollama, opencode, posting, zsh syntax
+highlighting), editors (Helix, Neovim, Vim, micro, Emacs, Zed, VS Code, Visual
+Studio, Sublime Text, JetBrains, Notepad++, GNOME Text Editor), browsers
+(qutebrowser, Firefox, Chrome, Zen Browser), shells/prompts (fish, starship)
+and desktop bits (rofi, dunst, mako, waybar, Hyprland, sway, i3, polybar, GTK,
+COSMIC) plus applications (Obsidian, Insomnia, Aseprite, Cider) — among others.
+To support a program lumos doesn't know yet, add it to the port base.
 
 ---
 
