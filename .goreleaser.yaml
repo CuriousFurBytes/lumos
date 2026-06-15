@@ -1,0 +1,50 @@
+version: 2
+
+project_name: lumos
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: lumos
+    main: .
+    binary: lumos
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/CuriousFurBytes/lumos/internal/cli.Version={{ .Version }}
+
+archives:
+  - id: lumos
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: checksums.txt
+
+release:
+  # Tags carrying a pre-release identifier (e.g. -alpha.1) are published as
+  # GitHub pre-releases automatically.
+  prerelease: auto
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"

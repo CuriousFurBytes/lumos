@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 	"strconv"
 	"strings"
 
@@ -17,8 +18,22 @@ import (
 	"github.com/CuriousFurBytes/lumos/internal/theme"
 )
 
-// Version is overridden at build time via -ldflags.
+// Version is overridden at build time via -ldflags. When unset (e.g. a plain
+// `go install`), Version() falls back to the module version from the build
+// info, so `go install ...@v0.0.1-alpha.1` still reports the right version.
 var Version = "dev"
+
+func resolveVersion() string {
+	if Version != "dev" && Version != "" {
+		return Version
+	}
+	if bi, ok := debug.ReadBuildInfo(); ok {
+		if v := bi.Main.Version; v != "" && v != "(devel)" {
+			return v
+		}
+	}
+	return Version
+}
 
 // Mode is the high-level action selected by the arguments.
 type Mode int
@@ -146,7 +161,7 @@ func (a *App) Run(args []string) int {
 		fmt.Fprint(a.Out, helpText)
 		return 0
 	case ModeVersion:
-		fmt.Fprintln(a.Out, "lumos", Version)
+		fmt.Fprintln(a.Out, "lumos", resolveVersion())
 		return 0
 	}
 

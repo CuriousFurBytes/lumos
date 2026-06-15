@@ -1,0 +1,79 @@
+name: Release
+
+# A tag is generated automatically on every merge to main (an alpha
+# pre-release bump by default), and that same run publishes a GitHub Release
+# with the built binaries. Use the manual "Run workflow" button to cut a
+# patch/minor/major or a stable release on demand.
+#
+# Commit-message markers also control the bump on a main merge:
+#   [patch] [minor] [major] [stable]   (default: prerelease/alpha)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump
+        type: choice
+        default: prerelease
+        options:
+          - prerelease
+          - patch
+          - minor
+          - major
+          - stable
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history + tags so we can find the latest tag
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.0"
+          check-latest: true
+
+      - name: Compute next version
+        id: ver
+        run: |
+          latest="$(git tag --list 'v*' --sort=-v:refname | head -n1)"
+          echo "latest tag: ${latest:-<none>}"
+          if [ -n "${{ inputs.bump }}" ]; then
+            next="$(go run ./tools/nextver -latest "$latest" -bump "${{ inputs.bump }}")"
+          else
+            next="$(go run ./tools/nextver -latest "$latest" -message "$(git log -1 --pretty=%B)")"
+          fi
+          echo "next: $next"
+          echo "tag=$next" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push tag
+        run: |
+          tag="${{ steps.ver.outputs.tag }}"
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists, nothing to do."
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git tag -a "$tag" -m "Release $tag"
+          git push origin "$tag"
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_CURRENT_TAG: ${{ steps.ver.outputs.tag }}
