@@ -47,6 +47,7 @@ families = ["catppuccin", "rose-pine"]
 [ports.wezterm-lua]
 name = "WezTerm (lua)"
 categories = ["terminal"]
+detect = "wezterm"
 target = "${XDG_CONFIG_HOME}/wezterm/colors/${slug}-${variant}.lua"
 families = ["catppuccin", "dracula"]
 
@@ -216,6 +217,7 @@ families = ["catppuccin", "base16"]
 [ports.gtk]
 name = "GTK"
 categories = ["desktop"]
+detect = "gsettings"
 target = "${XDG_CONFIG_HOME}/gtk-3.0/themes/${slug}-${variant}.css"
 families = ["catppuccin", "dracula", "rose-pine"]
 
@@ -224,3 +226,212 @@ name = "qutebrowser"
 categories = ["browser"]
 target = "${XDG_CONFIG_HOME}/qutebrowser/themes/${slug}-${variant}.py"
 families = ["catppuccin", "dracula", "rose-pine"]
+
+# --- issue #4: expanded ports -------------------------------------------------
+# Additional programs requested in https://github.com/CuriousFurBytes/lumos/issues/4.
+# Targets follow each program's conventional theme location and the existing
+# ${slug}/${variant}/${name}/${variantName} placeholder scheme.
+
+[ports.asciinema]
+name = "asciinema"
+categories = ["cli"]
+target = "${XDG_CONFIG_HOME}/asciinema/themes/${slug}-${variant}.toml"
+families = ["catppuccin"]
+
+[ports.aseprite]
+name = "Aseprite"
+categories = ["application"]
+target = "${XDG_CONFIG_HOME}/aseprite/themes/${slug}-${variant}.aseprite-theme"
+families = ["catppuccin"]
+
+[ports.atuin]
+name = "Atuin"
+categories = ["cli"]
+target = "${XDG_CONFIG_HOME}/atuin/themes/${slug}-${variant}.toml"
+families = ["catppuccin", "rose-pine"]
+
+[ports.chrome]
+name = "Google Chrome"
+categories = ["browser"]
+target = "${XDG_CONFIG_HOME}/chrome/themes/${slug}-${variant}"
+families = ["catppuccin"]
+
+[ports.cider]
+name = "Cider"
+categories = ["application"]
+target = "${XDG_CONFIG_HOME}/cider/themes/${slug}-${variant}.css"
+families = ["catppuccin"]
+
+[ports.cosmic]
+name = "COSMIC Desktop"
+categories = ["desktop"]
+target = "${XDG_CONFIG_HOME}/cosmic/com.system76.CosmicTheme.${variantName}/v1/${slug}-${variant}.ron"
+families = ["catppuccin"]
+
+[ports.emacs]
+name = "Emacs"
+categories = ["editor"]
+target = "${XDG_CONFIG_HOME}/emacs/themes/${slug}-${variant}-theme.el"
+families = ["catppuccin", "dracula", "base16", "rose-pine"]
+
+[ports.eza]
+name = "eza"
+categories = ["cli"]
+target = "${XDG_CONFIG_HOME}/eza/themes/${slug}-${variant}.yml"
+families = ["catppuccin"]
+
+[ports.firefox]
+name = "Firefox"
+categories = ["browser"]
+target = "${XDG_CONFIG_HOME}/firefox/themes/${slug}-${variant}.css"
+families = ["catppuccin", "dracula", "rose-pine"]
+
+[ports.jetbrains]
+name = "JetBrains"
+categories = ["editor"]
+target = "${XDG_CONFIG_HOME}/JetBrains/themes/${slug}-${variant}.icls"
+families = ["catppuccin", "dracula", "rose-pine"]
+
+[ports."fluent-terminal"]
+name = "Fluent Terminal"
+categories = ["terminal"]
+target = "${XDG_CONFIG_HOME}/fluent-terminal/themes/${slug}-${variant}.json"
+families = ["dracula"]
+
+[ports."gh-dash"]
+name = "gh-dash"
+categories = ["cli"]
+target = "${XDG_CONFIG_HOME}/gh-dash/themes/${slug}-${variant}.yml"
+families = ["catppuccin"]
+
+[ports."gnome-terminal"]
+name = "GNOME Terminal"
+categories = ["terminal"]
+target = "${XDG_CONFIG_HOME}/gnome-terminal/themes/${slug}-${variant}.sh"
+families = ["catppuccin", "dracula"]
+
+[ports."gnome-text-editor"]
+name = "GNOME Text Editor"
+categories = ["editor"]
+target = "${XDG_DATA_HOME}/org.gnome.TextEditor/styles/${slug}-${variant}.xml"
+families = ["catppuccin"]
+
+[ports.glamour]
+name = "Glamour"
+categories = ["cli"]
+target = "${XDG_CONFIG_HOME}/glamour/themes/${slug}-${variant}.json"
+families = ["catppuccin"]
+
+[ports.insomnia]
+name = "Insomnia"
+categories = ["application"]
+target = "${XDG_CONFIG_HOME}/insomnia/themes/${slug}-${variant}.js"
+families = ["catppuccin", "dracula"]
+
+[ports.iterm]
+name = "iTerm2"
+categories = ["terminal"]
+target = "${XDG_CONFIG_HOME}/iterm2/themes/${slug}-${variant}.itermcolors"
+families = ["catppuccin", "dracula", "rose-pine"]
+
+[ports.konsole]
+name = "Konsole"
+categories = ["terminal"]
+target = "${XDG_DATA_HOME}/konsole/${slug}-${variant}.colorscheme"
+families = ["catppuccin", "dracula", "rose-pine"]
+
+[ports.nix]
+name = "Nix"
+categories = ["cli"]
+target = "${XDG_CONFIG_HOME}/nix/themes/${slug}-${variant}.nix"
+families = ["catppuccin"]
+
+[ports."notepad-plus-plus"]
+name = "Notepad++"
+categories = ["editor"]
+target = "${XDG_CONFIG_HOME}/notepad++/themes/${slug}-${variant}.xml"
+families = ["catppuccin", "dracula"]
+
+[ports.obsidian]
+name = "Obsidian"
+categories = ["application"]
+target = "${XDG_CONFIG_HOME}/obsidian/themes/${slug}-${variant}.css"
+families = ["catppuccin", "dracula", "rose-pine"]
+
+[ports.ollama]
+name = "Ollama"
+categories = ["cli"]
+target = "${XDG_CONFIG_HOME}/ollama/themes/${slug}-${variant}.json"
+families = ["catppuccin"]
+
+[ports.opencode]
+name = "OpenCode"
+categories = ["cli"]
+target = "${XDG_CONFIG_HOME}/opencode/themes/${slug}-${variant}.json"
+families = ["catppuccin"]
+
+[ports.posting]
+name = "Posting"
+categories = ["cli"]
+target = "${XDG_CONFIG_HOME}/posting/themes/${slug}-${variant}.yaml"
+families = ["catppuccin"]
+
+[ports."sublime-text"]
+name = "Sublime Text"
+categories = ["editor"]
+target = "${XDG_CONFIG_HOME}/sublime-text/Packages/User/${name} ${variantName}.sublime-color-scheme"
+families = ["catppuccin", "dracula", "base16", "rose-pine"]
+
+[ports.tabby]
+name = "Tabby"
+categories = ["terminal"]
+target = "${XDG_CONFIG_HOME}/tabby/themes/${slug}-${variant}.yaml"
+families = ["catppuccin", "dracula"]
+
+[ports.tilix]
+name = "Tilix"
+categories = ["terminal"]
+target = "${XDG_DATA_HOME}/tilix/schemes/${slug}-${variant}.json"
+families = ["catppuccin", "dracula"]
+
+[ports."visual-studio"]
+name = "Visual Studio"
+categories = ["editor"]
+target = "${XDG_CONFIG_HOME}/VisualStudio/themes/${slug}-${variant}.vssettings"
+families = ["catppuccin", "dracula"]
+
+[ports.vscode]
+name = "Visual Studio Code"
+categories = ["editor"]
+target = "${XDG_CONFIG_HOME}/Code/User/themes/${slug}-${variant}.json"
+families = ["catppuccin", "dracula", "base16", "rose-pine"]
+
+[ports.warp]
+name = "Warp"
+categories = ["terminal"]
+target = "${XDG_DATA_HOME}/warp-terminal/themes/${slug}-${variant}.yaml"
+families = ["catppuccin", "dracula"]
+
+[ports.zed]
+name = "Zed"
+categories = ["editor"]
+target = "${XDG_CONFIG_HOME}/zed/themes/${slug}-${variant}.json"
+families = ["catppuccin", "dracula", "rose-pine"]
+
+[ports."zen-browser"]
+name = "Zen Browser"
+categories = ["browser"]
+target = "${XDG_CONFIG_HOME}/zen/chrome/${slug}-${variant}.css"
+families = ["catppuccin"]
+
+[ports."zsh-syntax-highlighting"]
+name = "Zsh Syntax Highlighting"
+categories = ["cli"]
+target = "${XDG_CONFIG_HOME}/zsh/themes/${slug}-${variant}.zsh"
+families = ["catppuccin", "dracula"]
+
+[ports."zsh-fast-syntax-highlighting"]
+name = "Zsh Fast Syntax Highlighting"
+categories = ["cli"]
+target = "${XDG_CONFIG_HOME}/fsh/themes/${slug}-${variant}.ini"
+families = ["catppuccin"]

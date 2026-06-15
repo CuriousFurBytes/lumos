@@ -1,0 +1,20 @@
+name: "Dracula"
+family: dracula
+source: "https://github.com/dracula"
+description: "A dark theme for many editors, shells and more."
+
+variants:
+  - id: dark
+    name: "Dracula"
+    style: dark
+    colors:
+      base: "#282a36"
+      text: "#f8f8f2"
+      currentline: "#44475a"
+      comment: "#6272a4"
+      red: "#ff5555"
+      green: "#50fa7b"
+      yellow: "#f1fa8c"
+      purple: "#bd93f9"
+      pink: "#ff79c6"
+      cyan: "#8be9fd"

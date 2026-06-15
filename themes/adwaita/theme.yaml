@@ -1,0 +1,34 @@
+name: "Adwaita"
+family: adwaita
+source: "https://gitlab.gnome.org/GNOME/libadwaita"
+description: "The GNOME Adwaita colour palette."
+
+variants:
+  - id: dark
+    name: "Dark"
+    style: dark
+    colors:
+      base: "#241f31"
+      text: "#ffffff"
+      black: "#241f31"
+      red: "#ed333b"
+      green: "#57e389"
+      yellow: "#f8e45c"
+      blue: "#62a0ea"
+      magenta: "#c061cb"
+      cyan: "#5bc8af"
+      white: "#ffffff"
+  - id: light
+    name: "Light"
+    style: light
+    colors:
+      base: "#ffffff"
+      text: "#241f31"
+      black: "#241f31"
+      red: "#c01c28"
+      green: "#2ec27e"
+      yellow: "#e5a50a"
+      blue: "#1c71d8"
+      magenta: "#9141ac"
+      cyan: "#1a917d"
+      white: "#ffffff"

@@ -12,6 +12,8 @@ manifest with the theme's metadata and one or more **variants** (e.g.
 light/dark flavours, each a colour palette), plus a `programs/` folder where
 **every file is one program's config**. lumos fills the active variant's
 palette into those files and installs each one where its program expects it.
+Programs that aren't installed on your system are skipped automatically, so a
+broad theme bundle only touches the tools you actually have.
 
 lumos ships with a **port base** seeded from the canonical port lists of the
 major theming projects — [Catppuccin](https://github.com/catppuccin/catppuccin),
@@ -135,6 +137,7 @@ lumos follows the XDG base directory spec:
 | What                 | Location (default)                                        |
 | -------------------- | --------------------------------------------------------- |
 | Themes               | `$XDG_CONFIG_HOME/lumos/themes` (`~/.config/lumos/themes`) |
+| Custom ports         | `$XDG_CONFIG_HOME/lumos/ports.toml`                       |
 | Selected state       | `$XDG_STATE_HOME/lumos/state.toml`                        |
 
 **Custom themes** are `<name>.zip` bundles dropped into
@@ -208,14 +211,19 @@ A file with no tokens is installed verbatim for every variant.
 
 ### Authoring & rules
 
-- A program file's port must exist in the registry (that's how lumos knows the
-  destination); referencing a `${color.KEY}` a variant doesn't define is an
-  error.
+- A program file's port must exist in the registry or in your custom ports
+  file (that's how lumos knows the destination); referencing a `${color.KEY}` a
+  variant doesn't define is an error. See [Custom ports](#custom-ports) to add
+  programs lumos doesn't ship.
 - During development you can keep a bundle as a **plain directory** (same
   layout) — `lumos --install ./mytheme/` zips it for you, and `lumos` reads
   either form.
 - Reload hooks (e.g. `bat cache --build`) come from the registry entry and are
   **best-effort**: if a program isn't installed, lumos warns and carries on.
+- lumos only themes programs it finds installed: it looks for each port's
+  executable on `$PATH` (the port key, or the port's `detect` override when the
+  binary name differs, e.g. `wezterm-lua` → `wezterm`). Programs whose binary is
+  absent are reported as skipped rather than written.
 
 ---
 
@@ -231,11 +239,34 @@ templates understand `${slug}`, `${variant}`, `${name}`, `${variantName}` and
 the XDG/`$HOME`/`~` placeholders.
 
 Covered programs include terminals (Alacritty, kitty, WezTerm, foot, Ghostty,
-Rio), CLI tools (bat, delta, btop, bottom, fzf, lazygit, k9s, yazi, gitui),
-editors (Helix, Neovim, Vim, micro), shells/prompts (fish, starship) and
-desktop bits (rofi, dunst, mako, waybar, Hyprland, sway, i3, polybar, GTK) —
-among others. To support a program lumos doesn't know yet, add it to the port
-base.
+Rio, iTerm2, Konsole, Tilix, Tabby, Warp, Fluent Terminal, GNOME Terminal),
+CLI tools (bat, delta, btop, bottom, fzf, lazygit, k9s, yazi, gitui, atuin,
+eza, glamour, gh-dash, asciinema, ollama, opencode, posting, zsh syntax
+highlighting), editors (Helix, Neovim, Vim, micro, Emacs, Zed, VS Code, Visual
+Studio, Sublime Text, JetBrains, Notepad++, GNOME Text Editor), browsers
+(qutebrowser, Firefox, Chrome, Zen Browser), shells/prompts (fish, starship)
+and desktop bits (rofi, dunst, mako, waybar, Hyprland, sway, i3, polybar, GTK,
+COSMIC) plus applications (Obsidian, Insomnia, Aseprite, Cider) — among others.
+
+### Custom ports
+
+To support a program lumos doesn't know yet — without waiting for it to be
+added to the embedded base — define it in `$XDG_CONFIG_HOME/lumos/ports.toml`
+(`~/.config/lumos/ports.toml`). It uses the same schema as the embedded base:
+
+```toml
+[ports.cava]
+name = "cava"
+categories = ["cli"]
+target = "${XDG_CONFIG_HOME}/cava/themes/${slug}-${variant}.conf"
+post = ["pkill -USR2 cava"]   # shell steps run after the file is written
+```
+
+A theme's `programs/cava.conf` file is then matched to this port by its name,
+rendered with the variant palette, written to `target`, and each `post` step is
+run as an install/reload hook (best-effort: a failing step is a warning, not a
+hard error). Custom ports add new programs and override built-ins keyed the
+same way, so you can also redirect where lumos installs a known program's theme.
 
 ---
 

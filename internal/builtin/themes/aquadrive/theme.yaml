@@ -1,0 +1,34 @@
+name: "Aquadrive"
+family: aquadrive
+source: "https://github.com/CuriousFurBytes/aquadrive"
+description: "Modern design system with warm neutrals and customizable accents."
+
+variants:
+  - id: dark
+    name: "Dark"
+    style: dark
+    colors:
+      base: "#0b1c2c"
+      text: "#cde7f0"
+      black: "#13293d"
+      red: "#ff5d62"
+      green: "#4ec9a5"
+      yellow: "#e2c275"
+      blue: "#3aa7d8"
+      magenta: "#9d7cd8"
+      cyan: "#56cccf"
+      white: "#cde7f0"
+  - id: light
+    name: "Light"
+    style: light
+    colors:
+      base: "#f5f5f5"
+      text: "#2c2c2c"
+      black: "#262626"
+      red: "#ff5d62"
+      green: "#4ec9a5"
+      yellow: "#e2c275"
+      blue: "#3aa7d8"
+      magenta: "#9d7cd8"
+      cyan: "#56cccf"
+      white: "#ffffff"

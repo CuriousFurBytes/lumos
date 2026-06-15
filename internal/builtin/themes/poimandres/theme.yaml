@@ -1,0 +1,20 @@
+name: "Poimandres"
+family: poimandres
+source: "https://github.com/drcmda/poimandres-theme"
+description: "A minimal, sci-fi inspired dark theme."
+
+variants:
+  - id: dark
+    name: "Dark"
+    style: dark
+    colors:
+      base: "#1b1e28"
+      text: "#a6accd"
+      black: "#1b1e28"
+      red: "#d0679d"
+      green: "#5de4c7"
+      yellow: "#fffac2"
+      blue: "#89ddff"
+      magenta: "#fcc5e9"
+      cyan: "#add7ff"
+      white: "#a6accd"

@@ -1,0 +1,34 @@
+name: "One"
+family: one
+source: "https://github.com/atom/one-dark-syntax"
+description: "Atom's iconic One Dark and One Light palettes."
+
+variants:
+  - id: dark
+    name: "One Dark"
+    style: dark
+    colors:
+      base: "#282c34"
+      text: "#abb2bf"
+      black: "#282c34"
+      red: "#e06c75"
+      green: "#98c379"
+      yellow: "#e5c07b"
+      blue: "#61afef"
+      magenta: "#c678dd"
+      cyan: "#56b6c2"
+      white: "#abb2bf"
+  - id: light
+    name: "One Light"
+    style: light
+    colors:
+      base: "#fafafa"
+      text: "#383a42"
+      black: "#fafafa"
+      red: "#e45649"
+      green: "#50a14f"
+      yellow: "#c18401"
+      blue: "#4078f2"
+      magenta: "#a626a4"
+      cyan: "#0184bc"
+      white: "#383a42"

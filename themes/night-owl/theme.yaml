@@ -1,0 +1,34 @@
+name: "Night Owl"
+family: night-owl
+source: "https://github.com/sdras/night-owl-vscode-theme"
+description: "A dark theme for the night owls, with a light counterpart."
+
+variants:
+  - id: night
+    name: "Night"
+    style: dark
+    colors:
+      base: "#011627"
+      text: "#d6deeb"
+      black: "#011627"
+      red: "#ef5350"
+      green: "#22da6e"
+      yellow: "#c5e478"
+      blue: "#82aaff"
+      magenta: "#c792ea"
+      cyan: "#21c7a8"
+      white: "#d6deeb"
+  - id: light
+    name: "Light Owl"
+    style: light
+    colors:
+      base: "#fbfbfb"
+      text: "#403f53"
+      black: "#fbfbfb"
+      red: "#de3d3b"
+      green: "#08916a"
+      yellow: "#daaa01"
+      blue: "#288ed7"
+      magenta: "#d6438a"
+      cyan: "#2aa298"
+      white: "#403f53"

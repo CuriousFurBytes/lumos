@@ -1,0 +1,20 @@
+name: "SynthWave '84"
+family: synthwave-84
+source: "https://github.com/robb0wen/synthwave-vscode"
+description: "A neon, retro-futuristic colour scheme straight out of 1984."
+
+variants:
+  - id: dark
+    name: "Dark"
+    style: dark
+    colors:
+      base: "#262335"
+      text: "#ffffff"
+      black: "#262335"
+      red: "#fe4450"
+      green: "#72f1b8"
+      yellow: "#fede5d"
+      blue: "#03edf9"
+      magenta: "#ff7edb"
+      cyan: "#03edf9"
+      white: "#ffffff"

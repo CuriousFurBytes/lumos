@@ -14,6 +14,7 @@ import (
 	"github.com/CuriousFurBytes/lumos/internal/apply"
 	"github.com/CuriousFurBytes/lumos/internal/builtin"
 	"github.com/CuriousFurBytes/lumos/internal/config"
+	"github.com/CuriousFurBytes/lumos/internal/registry"
 	"github.com/CuriousFurBytes/lumos/internal/source"
 	"github.com/CuriousFurBytes/lumos/internal/theme"
 )
@@ -127,23 +128,25 @@ func splitThemeVariant(s string) (theme, variant string) {
 
 // App carries the runtime dependencies, injectable for testing.
 type App struct {
-	Paths  config.Paths
-	Runner apply.Runner
-	Cloner source.Cloner
-	In     io.Reader
-	Out    io.Writer
-	Err    io.Writer
+	Paths    config.Paths
+	Runner   apply.Runner
+	Detector apply.Detector
+	Cloner   source.Cloner
+	In       io.Reader
+	Out      io.Writer
+	Err      io.Writer
 }
 
 // New builds an App wired to the real environment.
 func New() *App {
 	return &App{
-		Paths:  config.Resolve(),
-		Runner: apply.ExecRunner{},
-		Cloner: source.GitCloner{},
-		In:     os.Stdin,
-		Out:    os.Stdout,
-		Err:    os.Stderr,
+		Paths:    config.Resolve(),
+		Runner:   apply.ExecRunner{},
+		Detector: apply.PathDetector{},
+		Cloner:   source.GitCloner{},
+		In:       os.Stdin,
+		Out:      os.Stdout,
+		Err:      os.Stderr,
 	}
 }
 
@@ -286,8 +289,22 @@ func (a *App) resolveVariant(th theme.Theme, variant string) (theme.Variant, err
 	return a.chooseVariant(bufio.NewReader(a.In), th, a.state().Variant)
 }
 
+// ports returns the embedded base merged with the user's custom ports from
+// PortsFile, so themes can target programs lumos does not ship out of the box.
+func (a *App) ports() (map[string]registry.Port, error) {
+	custom, err := registry.LoadFile(a.Paths.PortsFile())
+	if err != nil {
+		return nil, err
+	}
+	return registry.Merge(custom), nil
+}
+
 func (a *App) applyVariant(th theme.Theme, v theme.Variant, dryRun bool) error {
-	progs, err := apply.Render(th, v, a.Paths)
+	ports, err := a.ports()
+	if err != nil {
+		return err
+	}
+	progs, skipped, err := apply.Render(th, v, a.Paths, ports, a.Detector)
 	if err != nil {
 		return err
 	}
@@ -299,6 +316,7 @@ func (a *App) applyVariant(th theme.Theme, v theme.Variant, dryRun bool) error {
 	if dryRun {
 		fmt.Fprintf(a.Out, "[dry-run] would apply %s to %d program(s): %s\n",
 			label, len(rep.Applied), strings.Join(rep.Applied, ", "))
+		a.reportSkipped(skipped)
 		return nil
 	}
 	if err := config.SaveState(a.Paths.StateFile(), config.State{Current: th.Slug, Variant: v.ID}); err != nil {
@@ -306,10 +324,21 @@ func (a *App) applyVariant(th theme.Theme, v theme.Variant, dryRun bool) error {
 	}
 	fmt.Fprintf(a.Out, "Applied %s to %d program(s): %s\n",
 		label, len(rep.Applied), strings.Join(rep.Applied, ", "))
+	a.reportSkipped(skipped)
 	for _, w := range rep.Warnings {
 		fmt.Fprintln(a.Err, "  warning:", w)
 	}
 	return nil
+}
+
+// reportSkipped tells the user which themed programs were left untouched
+// because they are not installed on the system.
+func (a *App) reportSkipped(skipped []string) {
+	if len(skipped) == 0 {
+		return
+	}
+	fmt.Fprintf(a.Out, "Skipped %d not-installed program(s): %s\n",
+		len(skipped), strings.Join(skipped, ", "))
 }
 
 func (a *App) install(opts Options) error {
@@ -419,4 +448,17 @@ to apply; with a single variant it is used automatically.
 
 Themes live in $XDG_CONFIG_HOME/lumos/themes (default ~/.config/lumos/themes).
 Drop your own <name>.zip bundles there to have lumos manage them.
+
+CUSTOM PORTS:
+    For a program lumos doesn't know yet, add it to
+    $XDG_CONFIG_HOME/lumos/ports.toml (default ~/.config/lumos/ports.toml).
+    Each entry tells lumos where the theme file goes and what to run afterwards:
+
+        [ports.cava]
+        name = "cava"
+        target = "${XDG_CONFIG_HOME}/cava/themes/${slug}-${variant}.conf"
+        post = ["pkill -USR2 cava"]
+
+    Custom ports add new programs and may override built-in ones. A theme's
+    program file (e.g. programs/cava.conf) is matched to a port by its name.
 `

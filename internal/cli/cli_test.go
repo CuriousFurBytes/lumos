@@ -2,11 +2,13 @@ package cli
 
 import (
 	"bytes"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/CuriousFurBytes/lumos/internal/apply"
+	"github.com/CuriousFurBytes/lumos/internal/builtin"
 	"github.com/CuriousFurBytes/lumos/internal/config"
 	"github.com/CuriousFurBytes/lumos/internal/source"
 	"github.com/CuriousFurBytes/lumos/internal/theme"
@@ -122,11 +124,12 @@ func newTestApp(t *testing.T, in string) (*App, *bytes.Buffer) {
 
 	out := &bytes.Buffer{}
 	app := &App{
-		Paths:  config.Resolve(),
-		Runner: noopRunner{},
-		In:     strings.NewReader(in),
-		Out:    out,
-		Err:    out,
+		Paths:    config.Resolve(),
+		Runner:   noopRunner{},
+		Detector: allInstalled{},
+		In:       strings.NewReader(in),
+		Out:      out,
+		Err:      out,
 	}
 	return app, out
 }
@@ -135,9 +138,39 @@ type noopRunner struct{}
 
 func (noopRunner) Run(string) error { return nil }
 
+// allInstalled treats every program as present so the apply flow renders the
+// built-in themes' full program set, independent of the host machine.
+type allInstalled struct{}
+
+func (allInstalled) Installed(string) bool { return true }
+
 func TestInteractiveSelectThemeThenVariant(t *testing.T) {
-	// Theme #1 (catppuccin) has 4 variants, so a second prompt appears.
-	app, out := newTestApp(t, "1\n4\n")
+	app, out := newTestApp(t, "")
+	// catppuccin has several variants, so selecting it prompts for a variant
+	// too. Discover the menu positions instead of hard-coding them, since the
+	// built-in theme set grows over time.
+	if _, err := builtin.Seed(app.Paths.ThemesDir()); err != nil {
+		t.Fatal(err)
+	}
+	themes, err := theme.Discover(app.Paths.ThemesDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	themeIdx, variantIdx := -1, -1
+	for i, th := range themes {
+		if th.Slug == "catppuccin" {
+			themeIdx = i + 1
+			for j, v := range th.Variants {
+				if v.ID == "mocha" {
+					variantIdx = j + 1
+				}
+			}
+		}
+	}
+	if themeIdx < 0 || variantIdx < 0 {
+		t.Fatalf("could not locate catppuccin/mocha in seeded themes")
+	}
+	app.In = strings.NewReader(fmt.Sprintf("%d\n%d\n", themeIdx, variantIdx))
 	if code := app.Run(nil); code != 0 {
 		t.Fatalf("exit %d\n%s", code, out.String())
 	}
@@ -153,7 +186,7 @@ func TestInteractiveSelectThemeThenVariant(t *testing.T) {
 		t.Fatal(err)
 	}
 	v, _ := th.Variant("mocha")
-	progs, err := apply.Render(th, v, app.Paths)
+	progs, _, err := apply.Render(th, v, app.Paths, nil, app.Detector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,6 +253,69 @@ func TestInstallAndEnableFlow(t *testing.T) {
 	st, _ := config.LoadState(app.Paths.StateFile())
 	if st.Current != "mine" || st.Variant != "only" {
 		t.Errorf("install --enable should select theme, state=%+v", st)
+	}
+}
+
+// recordRunner captures the shell hooks lumos runs, so a test can assert a
+// custom port's install step fired.
+type recordRunner struct{ ran []string }
+
+func (r *recordRunner) Run(cmd string) error { r.ran = append(r.ran, cmd); return nil }
+
+func TestCustomPortInstallAndEnableFlow(t *testing.T) {
+	// End-to-end exercise of issue #6: a theme targets a program lumos does not
+	// ship ("cava"). The user teaches lumos about it via $XDG_CONFIG_HOME/
+	// lumos/ports.toml, giving a target plus a post-install shell step. Enabling
+	// the theme must write the file to the custom target and run that step.
+	app, out := newTestApp(t, "")
+	runner := &recordRunner{}
+	app.Runner = runner
+	app.Cloner = fakeCloner{}
+
+	bundle := filepath.Join(t.TempDir(), "neon")
+	writeFile(t, filepath.Join(bundle, "theme.yaml"),
+		"name: Neon\nslug: neon\nvariants:\n  - {id: only, name: Only, colors: {base: \"#101010\"}}\n")
+	writeFile(t, filepath.Join(bundle, "programs", "cava.conf"), "bg = ${color.base}")
+
+	// The custom port definition (not in the embedded registry).
+	writeFile(t, app.Paths.PortsFile(), `
+[ports.cava]
+name = "cava"
+categories = ["cli"]
+target = "${XDG_CONFIG_HOME}/cava/themes/${slug}-${variant}.conf"
+post = ["pkill -USR2 cava"]
+`)
+
+	if code := app.Run([]string{"--install", bundle, "--enable"}); code != 0 {
+		t.Fatalf("exit %d\n%s", code, out.String())
+	}
+
+	target := filepath.Join(app.Paths.Config, "cava", "themes", "neon-only.conf")
+	if !fileExists(target) {
+		t.Fatalf("custom port file not written to %s\n%s", target, out.String())
+	}
+	got, _ := readFile(t, target)
+	if got != "bg = #101010" {
+		t.Errorf("rendered content = %q, want palette substituted", got)
+	}
+	if len(runner.ran) != 1 || runner.ran[0] != "pkill -USR2 cava" {
+		t.Errorf("install steps ran = %v, want the custom port's post hook", runner.ran)
+	}
+}
+
+func TestUnknownPortWithoutCustomDefinitionFails(t *testing.T) {
+	// Without a custom port definition, a theme referencing an unknown program
+	// still fails — the custom-ports feature is opt-in, not a silent fallback.
+	app, out := newTestApp(t, "")
+	app.Cloner = fakeCloner{}
+
+	bundle := filepath.Join(t.TempDir(), "ghost")
+	writeFile(t, filepath.Join(bundle, "theme.yaml"),
+		"name: Ghost\nslug: ghost\nvariants:\n  - {id: only, name: Only, colors: {base: \"#000000\"}}\n")
+	writeFile(t, filepath.Join(bundle, "programs", "nosuchprog.conf"), "x = ${color.base}")
+
+	if code := app.Run([]string{"--install", bundle, "--enable"}); code == 0 {
+		t.Fatalf("expected failure for unknown port with no custom definition\n%s", out.String())
 	}
 }
 
