@@ -241,6 +241,52 @@ even one not in the base.
 
 ---
 
+## Versioning & releases
+
+lumos uses [SemVer 2.0.0](https://semver.org). While it is pre-1.0, every
+release is an **alpha pre-release**, starting at `v0.0.1-alpha.1`. Pre-release
+tags use the canonical hyphenated form (`vX.Y.Z-alpha.N`), so `go install
+…@latest` keeps installing the latest *stable* release and ignores alphas —
+install a specific alpha explicitly:
+
+```sh
+go install github.com/CuriousFurBytes/lumos@v0.0.1-alpha.1
+```
+
+`lumos --version` reports the tag it was built from (via build info, or the
+`-ldflags` value used by the release build).
+
+### Automatic tags on merge
+
+Every merge to `main` runs
+[`.github/workflows/release.yml`](.github/workflows/release.yml), which:
+
+1. finds the latest `v*` tag,
+2. computes the next version (an alpha bump by default — see below),
+3. creates and pushes that tag, and
+4. publishes a GitHub Release with cross-platform binaries (via
+   [GoReleaser](https://goreleaser.com); `-alpha` tags are marked as
+   pre-releases automatically).
+
+The bump rules live in the tested [`internal/version`](internal/version)
+package and are driven by the `tools/nextver` helper:
+
+| Situation / input            | Example result                       |
+| ---------------------------- | ------------------------------------ |
+| no tags yet                  | `v0.0.1-alpha.1`                     |
+| default merge (alpha bump)   | `…-alpha.1` → `…-alpha.2`            |
+| commit contains `[patch]`    | `v0.0.1-alpha.3` → `v0.0.2-alpha.1` |
+| commit contains `[minor]`    | `v0.3.4-alpha.5` → `v0.4.0-alpha.1` |
+| commit contains `[major]`    | `v0.3.4-alpha.5` → `v1.0.0-alpha.1` |
+| commit contains `[stable]`   | `v0.3.4-alpha.5` → `v0.3.4`         |
+
+You can also cut a release on demand from the Actions tab via **Run workflow**,
+choosing the bump level (`prerelease`/`patch`/`minor`/`major`/`stable`).
+
+> The workflow needs the repository's Actions permission set to
+> **Read and write** (Settings → Actions → General → Workflow permissions) so
+> it can push tags and publish releases with the built-in `GITHUB_TOKEN`.
+
 ## Development
 
 ```sh

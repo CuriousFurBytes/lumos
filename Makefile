@@ -28,5 +28,12 @@ check: ## Run the full CI gate locally (fmt check, vet, lint, test)
 install: ## Install lumos into GOBIN
 	go install -ldflags "$(LDFLAGS)" .
 
+snapshot: ## Build a local release snapshot with GoReleaser (no publish)
+	go run github.com/goreleaser/goreleaser/v2@latest release --snapshot --clean
+
+next-version: ## Print the next tag (BUMP=prerelease|patch|minor|major|stable)
+	@go run ./tools/nextver -latest "$$(git tag --list 'v*' --sort=-v:refname | head -n1)" -bump "$(or $(BUMP),prerelease)"
+
 clean:
 	rm -f $(BINARY) coverage.out
+	rm -rf dist/
