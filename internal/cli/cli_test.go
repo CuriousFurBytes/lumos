@@ -186,7 +186,7 @@ func TestInteractiveSelectThemeThenVariant(t *testing.T) {
 		t.Fatal(err)
 	}
 	v, _ := th.Variant("mocha")
-	progs, _, err := apply.Render(th, v, app.Paths, app.Detector)
+	progs, _, err := apply.Render(th, v, app.Paths, nil, app.Detector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -253,6 +253,69 @@ func TestInstallAndEnableFlow(t *testing.T) {
 	st, _ := config.LoadState(app.Paths.StateFile())
 	if st.Current != "mine" || st.Variant != "only" {
 		t.Errorf("install --enable should select theme, state=%+v", st)
+	}
+}
+
+// recordRunner captures the shell hooks lumos runs, so a test can assert a
+// custom port's install step fired.
+type recordRunner struct{ ran []string }
+
+func (r *recordRunner) Run(cmd string) error { r.ran = append(r.ran, cmd); return nil }
+
+func TestCustomPortInstallAndEnableFlow(t *testing.T) {
+	// End-to-end exercise of issue #6: a theme targets a program lumos does not
+	// ship ("cava"). The user teaches lumos about it via $XDG_CONFIG_HOME/
+	// lumos/ports.toml, giving a target plus a post-install shell step. Enabling
+	// the theme must write the file to the custom target and run that step.
+	app, out := newTestApp(t, "")
+	runner := &recordRunner{}
+	app.Runner = runner
+	app.Cloner = fakeCloner{}
+
+	bundle := filepath.Join(t.TempDir(), "neon")
+	writeFile(t, filepath.Join(bundle, "theme.yaml"),
+		"name: Neon\nslug: neon\nvariants:\n  - {id: only, name: Only, colors: {base: \"#101010\"}}\n")
+	writeFile(t, filepath.Join(bundle, "programs", "cava.conf"), "bg = ${color.base}")
+
+	// The custom port definition (not in the embedded registry).
+	writeFile(t, app.Paths.PortsFile(), `
+[ports.cava]
+name = "cava"
+categories = ["cli"]
+target = "${XDG_CONFIG_HOME}/cava/themes/${slug}-${variant}.conf"
+post = ["pkill -USR2 cava"]
+`)
+
+	if code := app.Run([]string{"--install", bundle, "--enable"}); code != 0 {
+		t.Fatalf("exit %d\n%s", code, out.String())
+	}
+
+	target := filepath.Join(app.Paths.Config, "cava", "themes", "neon-only.conf")
+	if !fileExists(target) {
+		t.Fatalf("custom port file not written to %s\n%s", target, out.String())
+	}
+	got, _ := readFile(t, target)
+	if got != "bg = #101010" {
+		t.Errorf("rendered content = %q, want palette substituted", got)
+	}
+	if len(runner.ran) != 1 || runner.ran[0] != "pkill -USR2 cava" {
+		t.Errorf("install steps ran = %v, want the custom port's post hook", runner.ran)
+	}
+}
+
+func TestUnknownPortWithoutCustomDefinitionFails(t *testing.T) {
+	// Without a custom port definition, a theme referencing an unknown program
+	// still fails — the custom-ports feature is opt-in, not a silent fallback.
+	app, out := newTestApp(t, "")
+	app.Cloner = fakeCloner{}
+
+	bundle := filepath.Join(t.TempDir(), "ghost")
+	writeFile(t, filepath.Join(bundle, "theme.yaml"),
+		"name: Ghost\nslug: ghost\nvariants:\n  - {id: only, name: Only, colors: {base: \"#000000\"}}\n")
+	writeFile(t, filepath.Join(bundle, "programs", "nosuchprog.conf"), "x = ${color.base}")
+
+	if code := app.Run([]string{"--install", bundle, "--enable"}); code == 0 {
+		t.Fatalf("expected failure for unknown port with no custom definition\n%s", out.String())
 	}
 }
 

@@ -137,6 +137,7 @@ lumos follows the XDG base directory spec:
 | What                 | Location (default)                                        |
 | -------------------- | --------------------------------------------------------- |
 | Themes               | `$XDG_CONFIG_HOME/lumos/themes` (`~/.config/lumos/themes`) |
+| Custom ports         | `$XDG_CONFIG_HOME/lumos/ports.toml`                       |
 | Selected state       | `$XDG_STATE_HOME/lumos/state.toml`                        |
 
 **Custom themes** are `<name>.zip` bundles dropped into
@@ -210,9 +211,10 @@ A file with no tokens is installed verbatim for every variant.
 
 ### Authoring & rules
 
-- A program file's port must exist in the registry (that's how lumos knows the
-  destination); referencing a `${color.KEY}` a variant doesn't define is an
-  error.
+- A program file's port must exist in the registry or in your custom ports
+  file (that's how lumos knows the destination); referencing a `${color.KEY}` a
+  variant doesn't define is an error. See [Custom ports](#custom-ports) to add
+  programs lumos doesn't ship.
 - During development you can keep a bundle as a **plain directory** (same
   layout) — `lumos --install ./mytheme/` zips it for you, and `lumos` reads
   either form.
@@ -245,7 +247,26 @@ Studio, Sublime Text, JetBrains, Notepad++, GNOME Text Editor), browsers
 (qutebrowser, Firefox, Chrome, Zen Browser), shells/prompts (fish, starship)
 and desktop bits (rofi, dunst, mako, waybar, Hyprland, sway, i3, polybar, GTK,
 COSMIC) plus applications (Obsidian, Insomnia, Aseprite, Cider) — among others.
-To support a program lumos doesn't know yet, add it to the port base.
+
+### Custom ports
+
+To support a program lumos doesn't know yet — without waiting for it to be
+added to the embedded base — define it in `$XDG_CONFIG_HOME/lumos/ports.toml`
+(`~/.config/lumos/ports.toml`). It uses the same schema as the embedded base:
+
+```toml
+[ports.cava]
+name = "cava"
+categories = ["cli"]
+target = "${XDG_CONFIG_HOME}/cava/themes/${slug}-${variant}.conf"
+post = ["pkill -USR2 cava"]   # shell steps run after the file is written
+```
+
+A theme's `programs/cava.conf` file is then matched to this port by its name,
+rendered with the variant palette, written to `target`, and each `post` step is
+run as an install/reload hook (best-effort: a failing step is a warning, not a
+hard error). Custom ports add new programs and override built-ins keyed the
+same way, so you can also redirect where lumos installs a known program's theme.
 
 ---
 

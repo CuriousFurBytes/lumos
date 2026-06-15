@@ -23,6 +23,9 @@ func TestResolveRespectsXDGEnv(t *testing.T) {
 	if got, want := p.StateFile(), "/state/lumos/state.toml"; got != want {
 		t.Errorf("StateFile = %q, want %q", got, want)
 	}
+	if got, want := p.PortsFile(), "/cfg/lumos/ports.toml"; got != want {
+		t.Errorf("PortsFile = %q, want %q", got, want)
+	}
 }
 
 func TestResolveFallsBackToHome(t *testing.T) {

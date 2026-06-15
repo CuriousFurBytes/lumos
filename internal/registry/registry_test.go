@@ -1,6 +1,10 @@
 package registry
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestAllLoadsEmbeddedPorts(t *testing.T) {
 	all := All()
@@ -176,5 +180,90 @@ func TestPortsWithDistinctBinariesDeclareDetect(t *testing.T) {
 		if got := p.Command(key); got != bin {
 			t.Errorf("port %q command = %q, want %q", key, got, bin)
 		}
+	}
+}
+
+func TestLoadFileParsesCustomPorts(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "ports.toml")
+	const data = `
+[ports.cava]
+name = "cava"
+categories = ["cli"]
+target = "${XDG_CONFIG_HOME}/cava/themes/${slug}-${variant}.conf"
+post = ["pkill -USR2 cava"]
+`
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ports, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+	cava, ok := ports["cava"]
+	if !ok {
+		t.Fatal("custom port cava not loaded")
+	}
+	if cava.Name != "cava" {
+		t.Errorf("name = %q", cava.Name)
+	}
+	if cava.Target == "" {
+		t.Error("custom port has no target")
+	}
+	if len(cava.Post) != 1 || cava.Post[0] != "pkill -USR2 cava" {
+		t.Errorf("post = %v, want the install step", cava.Post)
+	}
+}
+
+func TestLoadFileMissingReturnsEmpty(t *testing.T) {
+	ports, err := LoadFile(filepath.Join(t.TempDir(), "nope.toml"))
+	if err != nil {
+		t.Fatalf("missing file must not error, got %v", err)
+	}
+	if len(ports) != 0 {
+		t.Errorf("expected no ports, got %d", len(ports))
+	}
+}
+
+func TestLoadFileInvalidErrors(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "ports.toml")
+	if err := os.WriteFile(path, []byte("this is ][ not valid toml"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadFile(path); err == nil {
+		t.Fatal("expected a parse error for invalid ports.toml")
+	}
+}
+
+func TestMergeOverlaysCustomPorts(t *testing.T) {
+	custom := map[string]Port{
+		// A brand-new port not in the embedded base.
+		"cava": {Name: "cava", Target: "x"},
+		// An override of an existing built-in port.
+		"alacritty": {Name: "My Alacritty", Target: "custom/path"},
+	}
+	merged := Merge(custom)
+
+	if _, ok := merged["cava"]; !ok {
+		t.Error("custom port cava missing from merge")
+	}
+	if got := merged["alacritty"]; got.Name != "My Alacritty" || got.Target != "custom/path" {
+		t.Errorf("custom override not applied: %+v", got)
+	}
+	// Untouched embedded ports survive.
+	if _, ok := merged["kitty"]; !ok {
+		t.Error("embedded port kitty lost in merge")
+	}
+	// Merge must not mutate the embedded base.
+	if base, _ := Lookup("alacritty"); base.Name == "My Alacritty" {
+		t.Error("Merge mutated the embedded registry")
+	}
+}
+
+func TestMergeNilCustomReturnsBaseCopy(t *testing.T) {
+	merged := Merge(nil)
+	if len(merged) != len(All()) {
+		t.Errorf("Merge(nil) size = %d, want embedded base size %d", len(merged), len(All()))
 	}
 }

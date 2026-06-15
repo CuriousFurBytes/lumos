@@ -14,6 +14,7 @@ import (
 	"github.com/CuriousFurBytes/lumos/internal/apply"
 	"github.com/CuriousFurBytes/lumos/internal/builtin"
 	"github.com/CuriousFurBytes/lumos/internal/config"
+	"github.com/CuriousFurBytes/lumos/internal/registry"
 	"github.com/CuriousFurBytes/lumos/internal/source"
 	"github.com/CuriousFurBytes/lumos/internal/theme"
 )
@@ -288,8 +289,22 @@ func (a *App) resolveVariant(th theme.Theme, variant string) (theme.Variant, err
 	return a.chooseVariant(bufio.NewReader(a.In), th, a.state().Variant)
 }
 
+// ports returns the embedded base merged with the user's custom ports from
+// PortsFile, so themes can target programs lumos does not ship out of the box.
+func (a *App) ports() (map[string]registry.Port, error) {
+	custom, err := registry.LoadFile(a.Paths.PortsFile())
+	if err != nil {
+		return nil, err
+	}
+	return registry.Merge(custom), nil
+}
+
 func (a *App) applyVariant(th theme.Theme, v theme.Variant, dryRun bool) error {
-	progs, skipped, err := apply.Render(th, v, a.Paths, a.Detector)
+	ports, err := a.ports()
+	if err != nil {
+		return err
+	}
+	progs, skipped, err := apply.Render(th, v, a.Paths, ports, a.Detector)
 	if err != nil {
 		return err
 	}
@@ -433,4 +448,17 @@ to apply; with a single variant it is used automatically.
 
 Themes live in $XDG_CONFIG_HOME/lumos/themes (default ~/.config/lumos/themes).
 Drop your own <name>.zip bundles there to have lumos manage them.
+
+CUSTOM PORTS:
+    For a program lumos doesn't know yet, add it to
+    $XDG_CONFIG_HOME/lumos/ports.toml (default ~/.config/lumos/ports.toml).
+    Each entry tells lumos where the theme file goes and what to run afterwards:
+
+        [ports.cava]
+        name = "cava"
+        target = "${XDG_CONFIG_HOME}/cava/themes/${slug}-${variant}.conf"
+        post = ["pkill -USR2 cava"]
+
+    Custom ports add new programs and may override built-in ones. A theme's
+    program file (e.g. programs/cava.conf) is matched to a port by its name.
 `

@@ -50,6 +50,11 @@ func (p Paths) ThemesDir() string { return filepath.Join(p.Config, "lumos", "the
 // StateFile records the currently selected theme.
 func (p Paths) StateFile() string { return filepath.Join(p.State, "lumos", "state.toml") }
 
+// PortsFile is the optional user-defined port registry. Entries here add
+// install targets (and reload/install shell steps via `post`) for programs
+// lumos does not ship in its embedded base, and may override built-in ports.
+func (p Paths) PortsFile() string { return filepath.Join(p.Config, "lumos", "ports.toml") }
+
 // Expand resolves the placeholders lumos supports inside theme target
 // paths: ~, $HOME, ${XDG_CONFIG_HOME}, ${XDG_DATA_HOME}, ${XDG_STATE_HOME}
 // and ${XDG_CACHE_HOME}.

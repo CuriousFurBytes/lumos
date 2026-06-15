@@ -20,3 +20,9 @@ func writeFile(t *testing.T, path, content string) {
 		t.Fatal(err)
 	}
 }
+
+func readFile(t *testing.T, path string) (string, error) {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	return string(b), err
+}

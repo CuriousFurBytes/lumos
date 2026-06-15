@@ -10,6 +10,9 @@ package registry
 
 import (
 	_ "embed"
+	"errors"
+	"fmt"
+	"io/fs"
 	"sync"
 
 	"github.com/BurntSushi/toml"
@@ -80,4 +83,39 @@ func All() map[string]Port { return load() }
 func Lookup(name string) (Port, bool) {
 	p, ok := load()[name]
 	return p, ok
+}
+
+// LoadFile parses a user-defined ports file (the same TOML schema as the
+// embedded base) into a port map. A missing file is not an error: it yields an
+// empty map so users without custom ports behave normally. Custom ports let
+// people teach lumos about programs it does not ship — each supplies a target
+// plus optional `post` shell steps run after the theme file is written.
+func LoadFile(path string) (map[string]Port, error) {
+	var f file
+	if _, err := toml.DecodeFile(path, &f); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return map[string]Port{}, nil
+		}
+		return nil, fmt.Errorf("reading custom ports %s: %w", path, err)
+	}
+	if f.Ports == nil {
+		return map[string]Port{}, nil
+	}
+	return f.Ports, nil
+}
+
+// Merge overlays custom ports onto a fresh copy of the embedded base. Custom
+// entries add new ports and override built-ins of the same key. The embedded
+// base is never mutated, so concurrent callers and later merges are unaffected.
+// A nil custom map yields a plain copy of the base.
+func Merge(custom map[string]Port) map[string]Port {
+	base := load()
+	out := make(map[string]Port, len(base)+len(custom))
+	for k, v := range base {
+		out[k] = v
+	}
+	for k, v := range custom {
+		out[k] = v
+	}
+	return out
 }
