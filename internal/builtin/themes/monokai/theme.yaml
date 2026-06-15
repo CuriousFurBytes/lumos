@@ -1,0 +1,20 @@
+name: "Monokai"
+family: monokai
+source: "https://monokai.pro"
+description: "The classic vibrant Monokai colour scheme."
+
+variants:
+  - id: classic
+    name: "Classic"
+    style: dark
+    colors:
+      base: "#272822"
+      text: "#f8f8f2"
+      black: "#272822"
+      red: "#f92672"
+      green: "#a6e22e"
+      yellow: "#e6db74"
+      blue: "#66d9ef"
+      magenta: "#ae81ff"
+      cyan: "#a1efe4"
+      white: "#f8f8f2"

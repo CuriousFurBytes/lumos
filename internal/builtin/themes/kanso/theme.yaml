@@ -1,0 +1,34 @@
+name: "Kanso"
+family: kanso
+source: "https://github.com/webhooked/kanso.nvim"
+description: "A minimal, muted theme inspired by Japanese aesthetics."
+
+variants:
+  - id: zen
+    name: "Zen"
+    style: dark
+    colors:
+      base: "#090e13"
+      text: "#c5c9c7"
+      black: "#1c1c1c"
+      red: "#c4746e"
+      green: "#8a9a7b"
+      yellow: "#c4b28a"
+      blue: "#8ba4b0"
+      magenta: "#a292a3"
+      cyan: "#8ea4a2"
+      white: "#c5c9c7"
+  - id: pearl
+    name: "Pearl"
+    style: light
+    colors:
+      base: "#f2f1ef"
+      text: "#22262d"
+      black: "#e7e4df"
+      red: "#c84053"
+      green: "#6f894e"
+      yellow: "#c08a35"
+      blue: "#4d699b"
+      magenta: "#9c5a87"
+      cyan: "#597b75"
+      white: "#22262d"

@@ -1,0 +1,20 @@
+name: "Cobalt2"
+family: cobalt
+source: "https://github.com/wesbos/cobalt2"
+description: "Wes Bos' bright blue Cobalt2 theme."
+
+variants:
+  - id: dark
+    name: "Dark"
+    style: dark
+    colors:
+      base: "#193549"
+      text: "#ffffff"
+      black: "#193549"
+      red: "#ff628c"
+      green: "#3ad900"
+      yellow: "#ffc600"
+      blue: "#0088ff"
+      magenta: "#fb94ff"
+      cyan: "#80fcff"
+      white: "#ffffff"

@@ -1,0 +1,34 @@
+name: "Material"
+family: material
+source: "https://github.com/material-theme/vsc-material-theme"
+description: "A theme based on Google's Material Design palette."
+
+variants:
+  - id: dark
+    name: "Dark"
+    style: dark
+    colors:
+      base: "#263238"
+      text: "#eeffff"
+      black: "#263238"
+      red: "#f07178"
+      green: "#c3e88d"
+      yellow: "#ffcb6b"
+      blue: "#82aaff"
+      magenta: "#c792ea"
+      cyan: "#89ddff"
+      white: "#eeffff"
+  - id: lighter
+    name: "Lighter"
+    style: light
+    colors:
+      base: "#fafafa"
+      text: "#546e7a"
+      black: "#fafafa"
+      red: "#e53935"
+      green: "#91b859"
+      yellow: "#f6a434"
+      blue: "#6182b8"
+      magenta: "#7c4dff"
+      cyan: "#39adb5"
+      white: "#546e7a"

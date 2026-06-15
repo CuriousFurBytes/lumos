@@ -1,0 +1,34 @@
+name: "Flexoki"
+family: flexoki
+source: "https://stephango.com/flexoki"
+description: "An inky colour scheme for prose and code."
+
+variants:
+  - id: dark
+    name: "Dark"
+    style: dark
+    colors:
+      base: "#100f0f"
+      text: "#cecdc3"
+      black: "#1c1b1a"
+      red: "#d14d41"
+      green: "#879a39"
+      yellow: "#d0a215"
+      blue: "#4385be"
+      magenta: "#ce5d97"
+      cyan: "#3aa99f"
+      white: "#cecdc3"
+  - id: light
+    name: "Light"
+    style: light
+    colors:
+      base: "#fffcf0"
+      text: "#100f0f"
+      black: "#100f0f"
+      red: "#af3029"
+      green: "#66800b"
+      yellow: "#ad8301"
+      blue: "#205ea6"
+      magenta: "#a02f6f"
+      cyan: "#24837b"
+      white: "#100f0f"

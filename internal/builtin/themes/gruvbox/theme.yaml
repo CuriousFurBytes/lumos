@@ -1,0 +1,34 @@
+name: "Gruvbox"
+family: gruvbox
+source: "https://github.com/morhetz/gruvbox"
+description: "Retro groove colour scheme with warm, earthy tones."
+
+variants:
+  - id: dark
+    name: "Dark"
+    style: dark
+    colors:
+      base: "#282828"
+      text: "#ebdbb2"
+      black: "#3c3836"
+      red: "#cc241d"
+      green: "#98971a"
+      yellow: "#d79921"
+      blue: "#458588"
+      magenta: "#b16286"
+      cyan: "#689d6a"
+      white: "#a89984"
+  - id: light
+    name: "Light"
+    style: light
+    colors:
+      base: "#fbf1c7"
+      text: "#3c3836"
+      black: "#fbf1c7"
+      red: "#cc241d"
+      green: "#98971a"
+      yellow: "#d79921"
+      blue: "#458588"
+      magenta: "#b16286"
+      cyan: "#689d6a"
+      white: "#7c6f64"
