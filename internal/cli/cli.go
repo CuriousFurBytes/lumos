@@ -201,7 +201,7 @@ func (a *App) list() error {
 		return err
 	}
 	if len(themes) == 0 {
-		fmt.Fprintln(a.Out, "No themes found. Install one with 'lumos --install <repo|folder|file>'.")
+		fmt.Fprintln(a.Out, "No themes found. Install one with 'lumos --install <repo|folder|zip>'.")
 		return nil
 	}
 	fmt.Fprint(a.Out, RenderThemeList(themes, a.state().Current))
@@ -214,7 +214,7 @@ func (a *App) interactive(dryRun bool) error {
 		return err
 	}
 	if len(themes) == 0 {
-		fmt.Fprintln(a.Out, "No themes found. Install one with 'lumos --install <repo|folder|file>'.")
+		fmt.Fprintln(a.Out, "No themes found. Install one with 'lumos --install <repo|folder|zip>'.")
 		return nil
 	}
 	st := a.state()
@@ -401,7 +401,7 @@ USAGE:
     lumos                         Interactively pick a theme (and variant) to apply
     lumos <name> [variant]        Apply a theme; <name>/<variant> also works
     lumos --list                  List available themes and the current one
-    lumos --install <src>         Install from a github repo, folder or .yaml file
+    lumos --install <src>         Install from a github repo, folder or .zip bundle
     lumos --install <src> --enable    Install and immediately apply it
     lumos --update [name]         Update one theme, or all themes when omitted
 
@@ -412,10 +412,11 @@ FLAGS:
     --version       Print version
     --help,    -h   Show this help
 
-A theme is a single YAML file with one or more variants. When a theme has
-several variants lumos asks which one to apply; with a single variant it is
-used automatically.
+A theme is a <name>.zip bundle: a theme.yaml manifest with one or more
+variants (each a colour palette) plus a programs/ folder where every file is
+one program's config. When a theme has several variants lumos asks which one
+to apply; with a single variant it is used automatically.
 
 Themes live in $XDG_CONFIG_HOME/lumos/themes (default ~/.config/lumos/themes).
-Drop your own <name>.yaml theme files there to have lumos manage them.
+Drop your own <name>.zip bundles there to have lumos manage them.
 `

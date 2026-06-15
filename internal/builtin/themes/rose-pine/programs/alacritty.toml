@@ -1,0 +1,14 @@
+# Rosé Pine for Alacritty
+[colors.primary]
+background = "${color.base}"
+foreground = "${color.text}"
+
+[colors.normal]
+black   = "${color.overlay}"
+red     = "${color.love}"
+green   = "${color.pine}"
+yellow  = "${color.gold}"
+blue    = "${color.foam}"
+magenta = "${color.iris}"
+cyan    = "${color.rose}"
+white   = "${color.text}"

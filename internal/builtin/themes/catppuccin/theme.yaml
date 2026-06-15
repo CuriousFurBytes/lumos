@@ -3,38 +3,8 @@ family: catppuccin
 source: "https://github.com/catppuccin/catppuccin"
 description: "Soothing pastel theme for the high-spirited."
 
-# Programs are declared once; ${color.X} is filled from the active variant.
-programs:
-  - name: alacritty
-    template: |
-      # Catppuccin for Alacritty
-      [colors.primary]
-      background = "${color.base}"
-      foreground = "${color.text}"
-
-      [colors.normal]
-      black   = "${color.surface1}"
-      red     = "${color.red}"
-      green   = "${color.green}"
-      yellow  = "${color.yellow}"
-      blue    = "${color.blue}"
-      magenta = "${color.pink}"
-      cyan    = "${color.teal}"
-      white   = "${color.subtext1}"
-  - name: kitty
-    template: |
-      # Catppuccin for kitty
-      foreground ${color.text}
-      background ${color.base}
-      color0     ${color.surface1}
-      color1     ${color.red}
-      color2     ${color.green}
-      color3     ${color.yellow}
-      color4     ${color.blue}
-      color5     ${color.pink}
-      color6     ${color.teal}
-      color7     ${color.subtext1}
-
+# Programs are not listed here — each file under programs/ is one program,
+# named by its registry port. ${color.X} is filled from the active variant.
 variants:
   - id: latte
     name: "Latte"

@@ -3,37 +3,6 @@ family: rose-pine
 source: "https://github.com/rose-pine"
 description: "All natural pine, faux fur and a bit of soho vibes."
 
-programs:
-  - name: alacritty
-    template: |
-      # Rosé Pine for Alacritty
-      [colors.primary]
-      background = "${color.base}"
-      foreground = "${color.text}"
-
-      [colors.normal]
-      black   = "${color.overlay}"
-      red     = "${color.love}"
-      green   = "${color.pine}"
-      yellow  = "${color.gold}"
-      blue    = "${color.foam}"
-      magenta = "${color.iris}"
-      cyan    = "${color.rose}"
-      white   = "${color.text}"
-  - name: kitty
-    template: |
-      # Rosé Pine for kitty
-      foreground ${color.text}
-      background ${color.base}
-      color0     ${color.overlay}
-      color1     ${color.love}
-      color2     ${color.pine}
-      color3     ${color.gold}
-      color4     ${color.foam}
-      color5     ${color.iris}
-      color6     ${color.rose}
-      color7     ${color.text}
-
 variants:
   - id: main
     name: "Main"

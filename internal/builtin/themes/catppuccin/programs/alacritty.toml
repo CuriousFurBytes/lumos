@@ -1,0 +1,14 @@
+# Catppuccin for Alacritty
+[colors.primary]
+background = "${color.base}"
+foreground = "${color.text}"
+
+[colors.normal]
+black   = "${color.surface1}"
+red     = "${color.red}"
+green   = "${color.green}"
+yellow  = "${color.yellow}"
+blue    = "${color.blue}"
+magenta = "${color.pink}"
+cyan    = "${color.teal}"
+white   = "${color.subtext1}"

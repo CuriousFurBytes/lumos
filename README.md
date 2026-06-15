@@ -7,11 +7,11 @@ programs in one shot. Pick a theme and a variant once, and lumos renders the
 right theme file into the right place for every program that theme supports —
 terminals, editors, CLI tools, launchers, notification daemons and more.
 
-A theme is a single [YAML 1.2](https://yaml.org/spec/1.2.2/) file. It declares
-its programs once as templates and provides one or more **variants** (e.g.
-light/dark flavours), each with its own colour palette. lumos fills the
-palette into the templates for whichever variant you pick, so one file themes
-every supported program for every variant.
+A theme is a `<name>.zip` bundle: a [YAML 1.2](https://yaml.org/spec/1.2.2/)
+manifest with the theme's metadata and one or more **variants** (e.g.
+light/dark flavours, each a colour palette), plus a `programs/` folder where
+**every file is one program's config**. lumos fills the active variant's
+palette into those files and installs each one where its program expects it.
 
 lumos ships with a **port base** seeded from the canonical port lists of the
 major theming projects — [Catppuccin](https://github.com/catppuccin/catppuccin),
@@ -87,20 +87,20 @@ If you name a multi-variant theme without a variant, lumos prompts for one.
 ### Install a theme
 
 From a GitHub repository (shorthand or full URL), a local folder, or a single
-`.yaml` file:
+`.zip` bundle:
 
 ```sh
 lumos --install CuriousFurBytes/my-themes      # github owner/repo shorthand
 lumos --install https://github.com/foo/bar     # full URL
-lumos --install ./catppuccin.yaml              # a single theme file
-lumos --install ./my-themes/                   # a folder of theme files
+lumos --install ./catppuccin.zip               # a packed bundle
+lumos --install ./catppuccin/                  # an unpacked bundle directory
 
 # install and switch to it immediately
 lumos --install CuriousFurBytes/my-themes --enable
 ```
 
-A repository or folder may contain any number of theme `.yaml`/`.yml` files;
-lumos installs all of them.
+A repository or folder may contain any number of bundles (packed `.zip`s or
+bundle directories); lumos installs all of them as `<slug>.zip`.
 
 ### Update themes
 
@@ -118,7 +118,7 @@ repositories, re-copy for local sources).
 lumos                         Interactively pick a theme (and variant)
 lumos <name> [variant]        Apply a theme; <name>/<variant> also works
 lumos --list, -l              List available themes and the current one
-lumos --install <src>         Install from a github repo, folder or .yaml file
+lumos --install <src>         Install from a github repo, folder or .zip bundle
 lumos --install <src> --enable    Install and immediately apply
 lumos --update [name]         Update one theme, or all when omitted
 lumos --dry-run, -n           Show what would change without writing
@@ -137,39 +137,37 @@ lumos follows the XDG base directory spec:
 | Themes               | `$XDG_CONFIG_HOME/lumos/themes` (`~/.config/lumos/themes`) |
 | Selected state       | `$XDG_STATE_HOME/lumos/state.toml`                        |
 
-**Custom themes** are just `.yaml` files dropped into
-`$XDG_CONFIG_HOME/lumos/themes/` — lumos manages them like any other. On first
-run lumos seeds a few starter themes (Catppuccin, Dracula, Rosé Pine) so
-there's something to switch to immediately; your own edits are never
-overwritten.
+**Custom themes** are `<name>.zip` bundles dropped into
+`$XDG_CONFIG_HOME/lumos/themes/` — lumos manages them like any other (a plain
+bundle directory works too). On first run lumos seeds a few starter themes
+(Catppuccin, Dracula, Rosé Pine) as zips so there's something to switch to
+immediately; your own files are never overwritten.
 
 ---
 
-## Theme file format
+## Theme bundle format
 
-A theme is one YAML file. Programs are declared once; each variant supplies a
-palette that fills the program templates.
+A theme is a `<name>.zip` whose contents are:
+
+```
+catppuccin.zip
+├── theme.yaml          # metadata + variants (palettes) — NOT a list of programs
+└── programs/
+    ├── alacritty.toml  # one file per program; the file name is the port key
+    ├── kitty.conf      # any ${color.X} is filled from the active variant
+    └── …
+```
+
+The manifest only describes the theme and its variants:
 
 ```yaml
+# theme.yaml
 name: "Catppuccin"
 family: catppuccin
 source: "https://github.com/catppuccin/catppuccin"   # used by --update
 description: "Soothing pastel theme for the high-spirited."
 
-# slug defaults to the file name (catppuccin.yaml -> "catppuccin").
-
-programs:
-  - name: alacritty            # a port key from the registry
-    template: |                # ${color.X} is filled from the active variant
-      [colors.primary]
-      background = "${color.base}"
-      foreground = "${color.text}"
-    # target defaults to the registry entry; override if you need to:
-    # target: "${XDG_CONFIG_HOME}/alacritty/themes/${slug}-${variant}.toml"
-
-  - name: bat
-    content: "…literal file, no palette…"   # use content instead of template
-    post: ["bat cache --build"]             # reload hooks (best-effort)
+# slug defaults to the bundle name (catppuccin.zip -> "catppuccin").
 
 variants:
   - id: latte                  # defaults to a slug of `name` when omitted
@@ -186,15 +184,18 @@ variants:
       text: "#cdd6f4"
 ```
 
-### Program fields
+Each file under `programs/` is one program's config. Its name minus extension
+is the **port key**, which lumos looks up in the registry to know where to
+install it. The file body may use `${color.KEY}` tokens:
 
-| Field      | Required | Meaning                                                       |
-| ---------- | -------- | ------------------------------------------------------------- |
-| `name`     | yes      | Port key. Looked up in the registry for the default `target`. |
-| `template` | one of   | Rendered with the variant palette via `${color.KEY}` tokens.  |
-| `content`  | one of   | Literal output, for programs that don't use the palette.      |
-| `target`   | no       | Destination path. Defaults to the registry entry for `name`.  |
-| `post`     | no       | Shell hooks run after writing (e.g. cache rebuilds).          |
+```toml
+# programs/alacritty.toml  ->  port "alacritty"
+[colors.primary]
+background = "${color.base}"
+foreground = "${color.text}"
+```
+
+A file with no tokens is installed verbatim for every variant.
 
 ### Variant fields
 
@@ -203,23 +204,18 @@ variants:
 | `id`     | no       | Stable id (defaults to a slug of `name`).          |
 | `name`   | yes      | Display name shown in the picker.                  |
 | `style`  | no       | `light` / `dark`, shown in the variant list.       |
-| `colors` | no\*     | Palette map; \*required if any `template` uses it. |
+| `colors` | no\*     | Palette map; \*required if any program file uses a token from it. |
 
-### Placeholders
+### Authoring & rules
 
-`template` colours use `${color.KEY}`, looked up in the variant's `colors`.
-Referencing a key the variant doesn't define is an error.
-
-`target` paths understand:
-
-- `${XDG_CONFIG_HOME}`, `${XDG_DATA_HOME}`, `${XDG_STATE_HOME}`, `${XDG_CACHE_HOME}`
-- `$HOME`, `~`
-- `${slug}` (theme slug), `${variant}` (variant id)
-- `${name}` (theme name), `${variantName}` (variant name)
-
-Post-install hooks are **best-effort**: if a program isn't installed (so its
-reload command fails) lumos warns and carries on rather than aborting the
-switch.
+- A program file's port must exist in the registry (that's how lumos knows the
+  destination); referencing a `${color.KEY}` a variant doesn't define is an
+  error.
+- During development you can keep a bundle as a **plain directory** (same
+  layout) — `lumos --install ./mytheme/` zips it for you, and `lumos` reads
+  either form.
+- Reload hooks (e.g. `bat cache --build`) come from the registry entry and are
+  **best-effort**: if a program isn't installed, lumos warns and carries on.
 
 ---
 
@@ -228,16 +224,18 @@ switch.
 `lumos` embeds a base of known programs ("ports") in
 [`internal/registry/ports.toml`](internal/registry/ports.toml), seeded from the
 upstream theming projects' published port lists. Each entry records where that
-program conventionally expects its theme file, so a theme can simply say
-`name: kitty` and lumos knows to write to
-`~/.config/kitty/themes/<slug>-<variant>.conf`.
+program conventionally expects its theme file (and any reload hook), so a file
+named `programs/kitty.conf` is installed to
+`~/.config/kitty/themes/<slug>-<variant>.conf` automatically. The destination
+templates understand `${slug}`, `${variant}`, `${name}`, `${variantName}` and
+the XDG/`$HOME`/`~` placeholders.
 
 Covered programs include terminals (Alacritty, kitty, WezTerm, foot, Ghostty,
 Rio), CLI tools (bat, delta, btop, bottom, fzf, lazygit, k9s, yazi, gitui),
 editors (Helix, Neovim, Vim, micro), shells/prompts (fish, starship) and
 desktop bits (rofi, dunst, mako, waybar, Hyprland, sway, i3, polybar, GTK) —
-among others. A theme can target any program by giving an explicit `target`,
-even one not in the base.
+among others. To support a program lumos doesn't know yet, add it to the port
+base.
 
 ---
 
@@ -306,10 +304,10 @@ binary.
 ```
 main.go                     thin entrypoint
 internal/cli                arg parsing, interactive picker, command dispatch
-internal/theme              theme file model + YAML loading/discovery
+internal/theme              zip/dir bundle model + manifest loading/discovery
 internal/registry           embedded port base (ports.toml)
 internal/apply              render a variant against the registry and install files
-internal/source             install/update from git repos, folders or files
+internal/source             install/update bundles from repos, folders or zips
 internal/config             XDG paths + selected-theme state
 internal/builtin            embedded starter themes, seeded on first run
 ```
